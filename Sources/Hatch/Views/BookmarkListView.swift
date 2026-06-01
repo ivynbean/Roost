@@ -26,7 +26,7 @@ struct BookmarkListView: View {
         .navigationTitle(store.selectedCategory.rawValue)
         .overlay {
             if store.visibleBookmarks.isEmpty {
-                ContentUnavailableView("Nothing here yet", systemImage: "tray", description: Text("Drop something into the bucket to save it."))
+                ContentUnavailableView("Nothing tucked away yet", systemImage: "shippingbox", description: Text("Paste, drop, or type anything into Hatch to save it."))
             }
         }
     }
@@ -39,7 +39,7 @@ private struct BookmarkRow: View {
         HStack(spacing: 10) {
             Image(systemName: iconName)
                 .frame(width: 22)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tint)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(bookmark.title)

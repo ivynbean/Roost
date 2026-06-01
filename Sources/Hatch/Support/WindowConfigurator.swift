@@ -31,20 +31,20 @@ struct WindowConfigurator: NSViewRepresentable {
 
         switch style {
         case .bucket:
-            window.title = "BucketDesk"
+            window.title = "Hatch"
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.styleMask.insert(.fullSizeContentView)
             window.standardWindowButton(.zoomButton)?.isHidden = true
             window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-            window.setContentSize(NSSize(width: 360, height: 290))
-            window.minSize = NSSize(width: 320, height: 250)
-            window.maxSize = NSSize(width: 480, height: 380)
-            window.setFrameAutosaveName("BucketDesk.Bucket")
+            window.setContentSize(NSSize(width: 380, height: 320))
+            window.minSize = NSSize(width: 340, height: 280)
+            window.maxSize = NSSize(width: 520, height: 420)
+            window.setFrameAutosaveName("Hatch.Bucket")
         case .library:
-            window.title = "Bookmark Library"
+            window.title = "Hatch Library"
             window.standardWindowButton(.zoomButton)?.isEnabled = true
-            window.setFrameAutosaveName("BucketDesk.Library")
+            window.setFrameAutosaveName("Hatch.Library")
         }
     }
 }

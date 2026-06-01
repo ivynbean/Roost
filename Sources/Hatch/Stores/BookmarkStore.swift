@@ -9,17 +9,17 @@ final class BookmarkStore: ObservableObject {
     @Published var selectedCategory: BookmarkCategory = .inbox
     @Published var selectedBookmarkID: Bookmark.ID?
     @Published var searchText = ""
-    @Published var lastImportMessage = "Drop links, files, or text into the bucket."
+    @Published var lastImportMessage = "Paste, drop, or type anything worth keeping."
 
     private let sorter = BookmarkSorter()
     private let clipboardImporter = ClipboardImporter()
-    private let logger = Logger(subsystem: "com.codex.BucketDesk", category: "bookmarks")
+    private let logger = Logger(subsystem: "com.ivynbean.Hatch", category: "bookmarks")
     private let saveURL: URL
     private var saveTask: Task<Void, Never>?
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("BucketDesk", isDirectory: true)
+            .appendingPathComponent("Hatch", isDirectory: true)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         saveURL = support.appendingPathComponent("bookmarks.json")
         load()
@@ -50,7 +50,7 @@ final class BookmarkStore: ObservableObject {
         bookmarks.insert(bookmark, at: 0)
         selectedCategory = bookmark.category
         selectedBookmarkID = bookmark.id
-        lastImportMessage = "Captured \(bookmark.title)"
+        lastImportMessage = "Tucked away: \(bookmark.title)"
         logger.info("Captured bookmark category=\(bookmark.category.rawValue, privacy: .public) kind=\(bookmark.kind.rawValue, privacy: .public)")
     }
 
@@ -131,7 +131,7 @@ final class BookmarkStore: ObservableObject {
         }
 
         do {
-            bookmarks = try JSONDecoder.bucketDesk.decode([Bookmark].self, from: data)
+            bookmarks = try JSONDecoder.hatch.decode([Bookmark].self, from: data)
         } catch {
             logger.error("Failed to load bookmarks: \(error.localizedDescription, privacy: .public)")
             bookmarks = Bookmark.samples
@@ -146,10 +146,10 @@ final class BookmarkStore: ObservableObject {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
             do {
-                let data = try JSONEncoder.bucketDesk.encode(bookmarks)
+                let data = try JSONEncoder.hatch.encode(bookmarks)
                 try data.write(to: saveURL, options: .atomic)
             } catch {
-                Logger(subsystem: "com.codex.BucketDesk", category: "persistence")
+                Logger(subsystem: "com.ivynbean.Hatch", category: "persistence")
                     .error("Failed to save bookmarks: \(error.localizedDescription, privacy: .public)")
             }
         }

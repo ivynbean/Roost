@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "BucketDesk",
+    name: "Hatch",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "BucketDesk", targets: ["BucketDesk"])
+        .executable(name: "Hatch", targets: ["Hatch"])
     ],
     targets: [
         .executableTarget(
-            name: "BucketDesk",
-            path: "Sources/BucketDesk"
+            name: "Hatch",
+            path: "Sources/Hatch"
         )
     ]
 )

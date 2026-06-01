@@ -5,7 +5,7 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: $store.selectedCategory) {
-            Section("Buckets") {
+            Section("Smart Piles") {
                 ForEach(BookmarkCategory.allCases) { category in
                     Label(category.rawValue, systemImage: category.symbolName)
                         .badge(count(for: category))
@@ -14,7 +14,7 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("Buckets")
+        .navigationTitle("Smart Piles")
     }
 
     private func count(for category: BookmarkCategory) -> Int {

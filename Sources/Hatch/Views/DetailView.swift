@@ -7,7 +7,7 @@ struct DetailView: View {
         if let bookmark = store.selectedBookmark {
             BookmarkDetail(bookmark: bookmark)
         } else {
-            ContentUnavailableView("Select a bookmark", systemImage: "bookmark", description: Text("Captured links, files, and notes appear here."))
+            ContentUnavailableView("Pick something from the pile", systemImage: "shippingbox", description: Text("Links, files, and notes you catch in Hatch appear here."))
         }
     }
 }
@@ -21,7 +21,7 @@ private struct BookmarkDetail: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(bookmark.category.rawValue, systemImage: bookmark.category.symbolName)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tint)
 
                     Text(bookmark.title)
                         .font(.title2.weight(.semibold))
@@ -49,9 +49,9 @@ private struct BookmarkDetail: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Sort")
+                Text("Smart Bucket")
                     .font(.headline)
-                Picker("Bucket", selection: Binding(
+                Picker("Smart Pile", selection: Binding(
                     get: { bookmark.category },
                     set: { store.move(bookmark, to: $0) }
                 )) {

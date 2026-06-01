@@ -10,17 +10,17 @@ struct ContentView: View {
             SidebarView()
         } content: {
             BookmarkListView()
-                .searchable(text: $store.searchText, prompt: "Search bucket")
+                .searchable(text: $store.searchText, prompt: "Search Hatch")
         } detail: {
             DetailView()
         }
-        .navigationTitle("BucketDesk")
+        .navigationTitle("Hatch")
         .toolbar {
             ToolbarItemGroup {
                 Button {
                     store.autoSortAll()
                 } label: {
-                    Label("Auto Sort", systemImage: "sparkles")
+                    Label("Tidy Up", systemImage: "sparkles")
                 }
 
                 Button(role: .destructive) {

@@ -1,7 +1,7 @@
 import Foundation
 
 extension JSONEncoder {
-    static var bucketDesk: JSONEncoder {
+    static var hatch: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -10,7 +10,7 @@ extension JSONEncoder {
 }
 
 extension JSONDecoder {
-    static var bucketDesk: JSONDecoder {
+    static var hatch: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder

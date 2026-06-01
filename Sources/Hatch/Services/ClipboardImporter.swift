@@ -5,7 +5,7 @@ struct ClipboardImporter {
     func captureFromClipboard(into store: BookmarkStore) {
         let pasteboard = NSPasteboard.general
 
-        if let url = pasteboard.bucketDeskURL {
+        if let url = pasteboard.hatchURL {
             store.add(url: url)
             return
         }
@@ -21,7 +21,7 @@ struct ClipboardImporter {
 }
 
 private extension NSPasteboard {
-    var bucketDeskURL: URL? {
+    var hatchURL: URL? {
         if let urls = readObjects(forClasses: [NSURL.self]) as? [URL],
            let url = urls.first {
             return url

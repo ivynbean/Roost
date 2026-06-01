@@ -2,19 +2,19 @@ import AppKit
 import SwiftUI
 
 @main
-struct BucketDeskApp: App {
+struct HatchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = BookmarkStore()
 
     var body: some Scene {
-        WindowGroup("BucketDesk", id: "bucket") {
+        WindowGroup("Hatch", id: "bucket") {
             BucketWindowView()
                 .environmentObject(store)
-                .frame(width: 360, height: 290)
+                .frame(width: 380, height: 320)
                 .background(WindowConfigurator(style: .bucket))
         }
 
-        WindowGroup("Bookmark Library", id: "library") {
+        WindowGroup("Hatch Library", id: "library") {
             ContentView()
                 .environmentObject(store)
                 .frame(minWidth: 920, minHeight: 600)
@@ -22,7 +22,7 @@ struct BucketDeskApp: App {
         }
         .commands {
             CommandGroup(after: .newItem) {
-                Button("Grab Clipboard") {
+                Button("Catch Clipboard") {
                     store.captureClipboard()
                 }
                 .keyboardShortcut("v", modifiers: [.command, .shift])

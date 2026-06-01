@@ -2,8 +2,8 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="BucketDesk"
-BUNDLE_ID="com.codex.BucketDesk"
+APP_NAME="Hatch"
+BUNDLE_ID="com.ivynbean.Hatch"
 MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

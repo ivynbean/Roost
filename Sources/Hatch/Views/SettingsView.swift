@@ -6,16 +6,16 @@ struct SettingsView: View {
     var body: some View {
         Form {
             LabeledContent("Storage") {
-                Text("Application Support / BucketDesk")
+                Text("Application Support / Hatch")
                     .foregroundStyle(.secondary)
             }
 
             LabeledContent("Sorter") {
-                Text("Local rules now, model-ready later")
+                Text("Local scoring now, model-ready later")
                     .foregroundStyle(.secondary)
             }
 
-            Button("Auto Sort All Bookmarks") {
+            Button("Tidy Up Everything") {
                 store.autoSortAll()
             }
         }

@@ -14,7 +14,7 @@ struct DropBucketView: View {
                 .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Desktop Bucket")
+                Text("Hatch Catch Bar")
                     .font(.headline)
                 Text(store.lastImportMessage)
                     .font(.caption)
@@ -29,7 +29,7 @@ struct DropBucketView: View {
             Button {
                 store.captureClipboard()
             } label: {
-                Label("Clipboard", systemImage: "doc.on.clipboard")
+                Label("Catch Clipboard", systemImage: "doc.on.clipboard")
             }
 
             Button {
