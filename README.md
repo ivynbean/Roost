@@ -1,6 +1,6 @@
-# BucketDesk
+# Hatch
 
-BucketDesk is a native macOS SwiftUI prototype for a floating desktop catch-all
+Hatch is a native macOS SwiftUI prototype for a floating desktop catch-all
 bucket. It launches as a compact always-on-top target, so you can paste, type, or
 drag URLs, file URLs, file paths, and loose notes straight into the bucket.
 
