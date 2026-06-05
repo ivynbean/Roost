@@ -55,7 +55,7 @@ struct SidebarView: View {
 private struct SidebarLogo: View {
     var body: some View {
         VStack(spacing: 6) {
-            if let logoImage = HatchImage.nsImage() {
+            if let logoImage = RoostImage.nsImage() {
                 Image(nsImage: logoImage)
                     .resizable()
                     .scaledToFit()
@@ -68,8 +68,8 @@ private struct SidebarLogo: View {
                     .frame(width: 96, height: 96)
             }
 
-            Text("Stash")
-                .font(.title2.weight(.semibold))
+            Text("Roost")
+                .font(Theme.logoFont(size: 34))
                 .foregroundStyle(Theme.pink)
         }
         .frame(maxWidth: .infinity)

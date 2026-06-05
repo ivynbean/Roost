@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreText
 
 enum Theme {
     static let pink = Color(red: 0.86, green: 0.24, blue: 0.36)
@@ -17,7 +18,17 @@ enum Theme {
     static let selected = Color(red: 0.23, green: 0.25, blue: 0.24)
 
     static func logoFont(size: CGFloat) -> Font {
-        .custom("Chalkboard SE", size: size).weight(.bold)
+        .custom("Sophiecomic Regular", size: size)
+    }
+}
+
+enum RoostFontRegistrar {
+    static func registerFonts() {
+        guard let url = Bundle.module.url(forResource: "Sophiecomic-Regular", withExtension: "ttf") else {
+            return
+        }
+
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }
 }
 
@@ -66,19 +77,34 @@ struct PaintedBackdrop: View {
     }
 }
 
-enum HatchImage {
+enum RoostImage {
     static func nsImage() -> NSImage? {
-        if let url = Bundle.module.url(forResource: "hatch-logo", withExtension: "jpg"),
+        if let url = Bundle.module.url(forResource: "roost-chick-icon", withExtension: "png"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        if let url = Bundle.module.url(forResource: "hatch-logo", withExtension: "png"),
+        if let url = Bundle.module.url(forResource: "roost-illustration", withExtension: "jpg"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        return NSImage(named: "hatch-logo")
+        if let url = Bundle.module.url(forResource: "roost-birkin", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+
+        if let url = Bundle.module.url(forResource: "roost-logo", withExtension: "jpg"),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+
+        if let url = Bundle.module.url(forResource: "roost-logo", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+
+        return NSImage(named: "roost-logo")
     }
 }
 

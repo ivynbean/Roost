@@ -16,8 +16,8 @@ struct ContentView: View {
             DetailView()
         }
         .background(Theme.paper)
-        .navigationTitle("Stash")
-        .searchable(text: $store.searchText, prompt: "Search Stash")
+        .navigationTitle("Roost")
+        .searchable(text: $store.searchText, prompt: "Search Roost")
         .toolbar {
             ToolbarItemGroup {
                 Button {

@@ -6,7 +6,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             LabeledContent("Storage") {
-                Text("Application Support / Stash")
+                Text("Application Support / Roost")
                     .foregroundStyle(.secondary)
             }
 

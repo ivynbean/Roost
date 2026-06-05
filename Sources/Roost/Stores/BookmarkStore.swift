@@ -13,15 +13,16 @@ final class BookmarkStore: ObservableObject {
 
     private let sorter = BookmarkSorter()
     private let clipboardImporter = ClipboardImporter()
-    private let logger = Logger(subsystem: "com.ivynbean.Stash", category: "bookmarks")
+    private let logger = Logger(subsystem: "com.ivynbean.Roost", category: "bookmarks")
     private let saveURL: URL
     private var saveTask: Task<Void, Never>?
 
     init() {
         let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let support = applicationSupport.appendingPathComponent("Stash", isDirectory: true)
+        let support = applicationSupport.appendingPathComponent("Roost", isDirectory: true)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         saveURL = support.appendingPathComponent("bookmarks.json")
+        migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Stash", isDirectory: true))
         migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Hatch", isDirectory: true))
         load()
     }
@@ -144,7 +145,7 @@ final class BookmarkStore: ObservableObject {
         }
 
         do {
-            bookmarks = try JSONDecoder.hatch.decode([Bookmark].self, from: data)
+            bookmarks = try JSONDecoder.roost.decode([Bookmark].self, from: data)
         } catch {
             logger.error("Failed to load bookmarks: \(error.localizedDescription, privacy: .public)")
             bookmarks = Bookmark.samples
@@ -159,10 +160,10 @@ final class BookmarkStore: ObservableObject {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
             do {
-                let data = try JSONEncoder.hatch.encode(bookmarks)
+                let data = try JSONEncoder.roost.encode(bookmarks)
                 try data.write(to: saveURL, options: .atomic)
             } catch {
-                Logger(subsystem: "com.ivynbean.Stash", category: "persistence")
+                Logger(subsystem: "com.ivynbean.Roost", category: "persistence")
                     .error("Failed to save bookmarks: \(error.localizedDescription, privacy: .public)")
             }
         }
@@ -175,7 +176,7 @@ final class BookmarkStore: ObservableObject {
 
         do {
             try FileManager.default.copyItem(at: legacySaveURL, to: saveURL)
-            logger.info("Migrated legacy Hatch bookmarks to Stash")
+            logger.info("Migrated legacy bookmarks to Roost")
         } catch {
             logger.error("Failed to migrate legacy bookmarks: \(error.localizedDescription, privacy: .public)")
         }
