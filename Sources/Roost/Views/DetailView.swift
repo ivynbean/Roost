@@ -19,37 +19,37 @@ private struct BookmarkDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(bookmark.category.rawValue, systemImage: bookmark.category.symbolName)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.moss)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Theme.grass.opacity(0.16), in: Capsule())
+            VStack(alignment: .leading, spacing: 10) {
+                Label(bookmark.category.rawValue, systemImage: bookmark.category.symbolName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.moss)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Theme.grass.opacity(0.16), in: Capsule())
 
-                    Text(bookmark.title)
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(3)
-                        .textSelection(.enabled)
+                Text(bookmark.title)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+
+                HStack(spacing: 10) {
+                    Button {
+                        store.toggleImportant(bookmark)
+                    } label: {
+                        Label(bookmark.isImportant ? "Flagged" : "Flag", systemImage: bookmark.isImportant ? "flag.fill" : "flag")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        store.open(bookmark)
+                    } label: {
+                        Label("Open", systemImage: "arrow.up.forward.app")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Spacer()
                 }
-
-                Spacer()
-
-                Button {
-                    store.toggleImportant(bookmark)
-                } label: {
-                    Label(bookmark.isImportant ? "Flagged" : "Flag", systemImage: bookmark.isImportant ? "flag.fill" : "flag")
-                }
-                .buttonStyle(.bordered)
-
-                Button {
-                    store.open(bookmark)
-                } label: {
-                    Label("Open", systemImage: "arrow.up.forward.app")
-                }
-                .buttonStyle(.borderedProminent)
             }
 
             DetailSection(title: "Location") {

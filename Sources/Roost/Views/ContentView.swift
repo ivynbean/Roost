@@ -12,12 +12,12 @@ struct ContentView: View {
         } content: {
             BookmarkListView()
                 .navigationSplitViewColumnWidth(min: 320, ideal: 420, max: 560)
+                .searchable(text: $store.searchText, prompt: "Search Roost")
         } detail: {
             DetailView()
         }
         .background(Theme.paper)
         .navigationTitle("Roost")
-        .searchable(text: $store.searchText, prompt: "Search Roost")
         .toolbar {
             ToolbarItemGroup {
                 Button {
