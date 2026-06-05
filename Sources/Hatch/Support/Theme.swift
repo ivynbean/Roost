@@ -79,6 +79,11 @@ struct PaintedBackdrop: View {
 
 enum HatchImage {
     static func nsImage() -> NSImage? {
+        if let url = Bundle.module.url(forResource: "hatch-chick-icon", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+
         if let url = Bundle.module.url(forResource: "hatch-illustration", withExtension: "jpg"),
            let image = NSImage(contentsOf: url) {
             return image

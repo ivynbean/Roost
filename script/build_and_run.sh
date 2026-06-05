@@ -6,6 +6,8 @@ APP_NAME="Stash"
 LEGACY_APP_NAME="Hatch"
 BUNDLE_ID="com.ivynbean.Stash"
 MIN_SYSTEM_VERSION="14.0"
+APP_VERSION="1.0"
+APP_BUILD="1"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -35,6 +37,9 @@ fi
 if [[ -f "$RESOURCE_BUNDLE/Hatch.icns" ]]; then
   cp "$RESOURCE_BUNDLE/Hatch.icns" "$APP_RESOURCES/Hatch.icns"
 fi
+if [[ -f "$RESOURCE_BUNDLE/PrivacyInfo.xcprivacy" ]]; then
+  cp "$RESOURCE_BUNDLE/PrivacyInfo.xcprivacy" "$APP_RESOURCES/PrivacyInfo.xcprivacy"
+fi
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,12 +52,28 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>
   <string>Hatch.icns</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$APP_VERSION</string>
+  <key>CFBundleVersion</key>
+  <string>$APP_BUILD</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.productivity</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSupportsAutomaticTermination</key>
+  <true/>
+  <key>NSSupportsSuddenTermination</key>
+  <true/>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright © 2026 ivynbean. All rights reserved.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>
@@ -83,8 +104,11 @@ case "$MODE" in
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
+  --build-only|build-only)
+    echo "Built $APP_BUNDLE"
+    ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--build-only]" >&2
     exit 2
     ;;
 esac
