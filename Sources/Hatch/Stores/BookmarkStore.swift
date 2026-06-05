@@ -13,15 +13,16 @@ final class BookmarkStore: ObservableObject {
 
     private let sorter = BookmarkSorter()
     private let clipboardImporter = ClipboardImporter()
-    private let logger = Logger(subsystem: "com.ivynbean.Hatch", category: "bookmarks")
+    private let logger = Logger(subsystem: "com.ivynbean.Stash", category: "bookmarks")
     private let saveURL: URL
     private var saveTask: Task<Void, Never>?
 
     init() {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Hatch", isDirectory: true)
+        let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let support = applicationSupport.appendingPathComponent("Stash", isDirectory: true)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         saveURL = support.appendingPathComponent("bookmarks.json")
+        migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Hatch", isDirectory: true))
         load()
     }
 
@@ -71,6 +72,18 @@ final class BookmarkStore: ObservableObject {
         bookmarks[index].category = category
         selectedCategory = category
         logger.info("Moved bookmark id=\(bookmark.id.uuidString, privacy: .public) category=\(category.rawValue, privacy: .public)")
+    }
+
+    func move(bookmarkID: Bookmark.ID, to category: BookmarkCategory) {
+        guard let bookmark = bookmarks.first(where: { $0.id == bookmarkID }) else { return }
+        move(bookmark, to: category)
+        selectedBookmarkID = bookmarkID
+    }
+
+    func toggleImportant(_ bookmark: Bookmark) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) else { return }
+        bookmarks[index].isImportant.toggle()
+        logger.info("Toggled important id=\(bookmark.id.uuidString, privacy: .public) value=\(self.bookmarks[index].isImportant, privacy: .public)")
     }
 
     func deleteSelected() {
@@ -149,9 +162,22 @@ final class BookmarkStore: ObservableObject {
                 let data = try JSONEncoder.hatch.encode(bookmarks)
                 try data.write(to: saveURL, options: .atomic)
             } catch {
-                Logger(subsystem: "com.ivynbean.Hatch", category: "persistence")
+                Logger(subsystem: "com.ivynbean.Stash", category: "persistence")
                     .error("Failed to save bookmarks: \(error.localizedDescription, privacy: .public)")
             }
+        }
+    }
+
+    private func migrateLegacyDataIfNeeded(from legacySupport: URL) {
+        let legacySaveURL = legacySupport.appendingPathComponent("bookmarks.json")
+        guard !FileManager.default.fileExists(atPath: saveURL.path),
+              FileManager.default.fileExists(atPath: legacySaveURL.path) else { return }
+
+        do {
+            try FileManager.default.copyItem(at: legacySaveURL, to: saveURL)
+            logger.info("Migrated legacy Hatch bookmarks to Stash")
+        } catch {
+            logger.error("Failed to migrate legacy bookmarks: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

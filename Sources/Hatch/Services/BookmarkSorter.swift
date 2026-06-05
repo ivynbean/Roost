@@ -2,7 +2,6 @@ import Foundation
 
 struct BookmarkSorter {
     private let rules: [(BookmarkCategory, [String])] = [
-        (.important, ["urgent", "important", "must", "deadline", "invoice due", "renewal", "appointment", "reservation", "boarding pass", "ticket"]),
         (.work, ["slack", "linear", "jira", "asana", "trello", "notion.so", "confluence", "meeting", "project", "roadmap", "workspace", "drive.google.com"]),
         (.code, ["github", "gitlab", "bitbucket", "stackoverflow", "developer.apple", "api.", "docs.", "swift", "javascript", "typescript", "python", "rust", "package", "sdk", "terminal", "pull request"]),
         (.design, ["figma", "dribbble", "behance", "palette", "typography", "font", "design", "mockup", "wireframe", "brand", "logo"]),
