@@ -3,18 +3,21 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var store: BookmarkStore
-    @State private var newBookmarkText = ""
+    @State private var isDropTargeted = false
 
     var body: some View {
         NavigationSplitView {
             SidebarView()
+                .navigationSplitViewColumnWidth(min: 220, ideal: 248, max: 300)
         } content: {
             BookmarkListView()
-                .searchable(text: $store.searchText, prompt: "Search Hatch")
+                .navigationSplitViewColumnWidth(min: 320, ideal: 420, max: 560)
         } detail: {
             DetailView()
         }
-        .navigationTitle("Hatch")
+        .background(Theme.paper)
+        .navigationTitle("Stash")
+        .searchable(text: $store.searchText, prompt: "Search Stash")
         .toolbar {
             ToolbarItemGroup {
                 Button {
@@ -31,9 +34,16 @@ struct ContentView: View {
                 .disabled(store.selectedBookmark == nil)
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            DropBucketView(newBookmarkText: $newBookmarkText)
-                .environmentObject(store)
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Theme.gold.opacity(0.85), lineWidth: 3)
+                    .padding(14)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: BookmarkDropHandler.acceptedTypes, isTargeted: $isDropTargeted) { providers in
+            BookmarkDropHandler.handle(providers, store: store)
         }
     }
 }

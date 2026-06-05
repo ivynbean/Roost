@@ -2,27 +2,29 @@ import AppKit
 import SwiftUI
 
 @main
-struct HatchApp: App {
+struct StashApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = BookmarkStore()
 
     var body: some Scene {
-        WindowGroup("Hatch", id: "bucket") {
+        WindowGroup("Stash", id: "bucket") {
             BucketWindowView()
                 .environmentObject(store)
-                .frame(width: 380, height: 320)
+                .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)
                 .background(WindowConfigurator(style: .bucket))
+                .tint(Theme.pink)
         }
 
-        WindowGroup("Hatch Library", id: "library") {
+        WindowGroup("Stash Library", id: "library") {
             ContentView()
                 .environmentObject(store)
-                .frame(minWidth: 920, minHeight: 600)
+                .frame(minWidth: 760, idealWidth: 1120, minHeight: 520, idealHeight: 720)
                 .background(WindowConfigurator(style: .library))
+                .tint(Theme.pink)
         }
         .commands {
             CommandGroup(after: .newItem) {
-                Button("Catch Clipboard") {
+                Button("Save Clipboard") {
                     store.captureClipboard()
                 }
                 .keyboardShortcut("v", modifiers: [.command, .shift])

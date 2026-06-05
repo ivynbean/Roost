@@ -8,13 +8,16 @@ struct BookmarkListView: View {
             ForEach(store.visibleBookmarks) { bookmark in
                 BookmarkRow(bookmark: bookmark)
                     .tag(bookmark.id)
+                    .onDrag {
+                        NSItemProvider(object: bookmark.id.uuidString as NSString)
+                    }
                     .contextMenu {
                         Button("Open") {
                             store.open(bookmark)
                         }
 
                         Menu("Move To") {
-                            ForEach(BookmarkCategory.allCases) { category in
+                            ForEach(BookmarkCategory.pileCases) { category in
                                 Button(category.rawValue) {
                                     store.move(bookmark, to: category)
                                 }
@@ -23,35 +26,68 @@ struct BookmarkListView: View {
                     }
             }
         }
+        .listStyle(.inset)
+        .scrollContentBackground(.hidden)
+        .background(PaintedBackdrop())
         .navigationTitle(store.selectedCategory.rawValue)
         .overlay {
             if store.visibleBookmarks.isEmpty {
-                ContentUnavailableView("Nothing tucked away yet", systemImage: "shippingbox", description: Text("Paste, drop, or type anything into Hatch to save it."))
+                EmptyPileView()
             }
         }
     }
 }
 
 private struct BookmarkRow: View {
+    @EnvironmentObject private var store: BookmarkStore
     let bookmark: Bookmark
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: iconName)
-                .frame(width: 22)
-                .foregroundStyle(.tint)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(iconTint.opacity(0.18))
+                Image(systemName: iconName)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(iconTint)
+            }
+            .frame(width: 34, height: 34)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(bookmark.title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
                     .lineLimit(1)
 
                 Text(bookmark.location)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.ink.opacity(0.62))
                     .lineLimit(1)
             }
+
+            Spacer(minLength: 10)
+
+            Button {
+                store.toggleImportant(bookmark)
+            } label: {
+                Image(systemName: bookmark.isImportant ? "flag.fill" : "flag")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(bookmark.isImportant ? Theme.pink : Theme.ink.opacity(0.34))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .help(bookmark.isImportant ? "Unflag" : "Flag important")
+
+            Text(bookmark.category.rawValue)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Theme.moss)
+                .lineLimit(1)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Theme.grass.opacity(0.16), in: Capsule())
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
     }
 
     private var iconName: String {
@@ -60,5 +96,38 @@ private struct BookmarkRow: View {
         case .file: "doc"
         case .text: "text.quote"
         }
+    }
+
+    private var iconTint: Color {
+        switch bookmark.kind {
+        case .web: Theme.lavender
+        case .file: Theme.wood
+        case .text: Theme.rose
+        }
+    }
+}
+
+private struct EmptyPileView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Theme.night)
+                    .rotationEffect(.degrees(-2))
+                Image(systemName: "sparkles")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(Theme.gold)
+            }
+            .frame(width: 118, height: 92)
+
+            Text("Nothing tucked away yet")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+            Text("Paste, drop, or type anything into Stash to save it.")
+                .font(.callout)
+                .foregroundStyle(Theme.ink.opacity(0.66))
+        }
+        .padding(28)
+        .paperPanel(cornerRadius: 12, tint: Theme.grass, fillOpacity: 0.9)
     }
 }

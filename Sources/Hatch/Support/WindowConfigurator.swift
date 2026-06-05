@@ -31,20 +31,26 @@ struct WindowConfigurator: NSViewRepresentable {
 
         switch style {
         case .bucket:
-            window.title = "Hatch"
+            window.title = "Stash"
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.styleMask.insert(.fullSizeContentView)
+            window.backgroundColor = .windowBackgroundColor
+            window.isOpaque = true
+            window.hasShadow = true
             window.standardWindowButton(.zoomButton)?.isHidden = true
             window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-            window.setContentSize(NSSize(width: 380, height: 320))
-            window.minSize = NSSize(width: 340, height: 280)
-            window.maxSize = NSSize(width: 520, height: 420)
-            window.setFrameAutosaveName("Hatch.Bucket")
+            if window.frameAutosaveName != "Stash.Bucket" {
+                window.setContentSize(NSSize(width: 420, height: 260))
+            }
+            window.minSize = NSSize(width: 360, height: 230)
+            window.maxSize = NSSize(width: 560, height: 360)
+            window.setFrameAutosaveName("Stash.Bucket")
         case .library:
-            window.title = "Hatch Library"
+            window.title = "Stash Library"
             window.standardWindowButton(.zoomButton)?.isEnabled = true
-            window.setFrameAutosaveName("Hatch.Library")
+            window.minSize = NSSize(width: 760, height: 520)
+            window.setFrameAutosaveName("Stash.Library")
         }
     }
 }
