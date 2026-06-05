@@ -2,9 +2,10 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="Stash"
-LEGACY_APP_NAME="Hatch"
-BUNDLE_ID="com.ivynbean.Stash"
+APP_NAME="Roost"
+LEGACY_APP_NAME="Stash"
+SECOND_LEGACY_APP_NAME="Hatch"
+BUNDLE_ID="com.ivynbean.Roost"
 MIN_SYSTEM_VERSION="14.0"
 APP_VERSION="1.0"
 APP_BUILD="1"
@@ -21,11 +22,12 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 cd "$ROOT_DIR"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 pkill -x "$LEGACY_APP_NAME" >/dev/null 2>&1 || true
+pkill -x "$SECOND_LEGACY_APP_NAME" >/dev/null 2>&1 || true
 
 swift build
 BUILD_DIR="$(swift build --show-bin-path)"
 BUILD_BINARY="$BUILD_DIR/$APP_NAME"
-RESOURCE_BUNDLE="$BUILD_DIR/Stash_Hatch.bundle"
+RESOURCE_BUNDLE="$BUILD_DIR/Roost_Roost.bundle"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
@@ -34,8 +36,8 @@ chmod +x "$APP_BINARY"
 if [[ -d "$RESOURCE_BUNDLE" ]]; then
   cp -R "$RESOURCE_BUNDLE" "$APP_RESOURCES/"
 fi
-if [[ -f "$RESOURCE_BUNDLE/Hatch.icns" ]]; then
-  cp "$RESOURCE_BUNDLE/Hatch.icns" "$APP_RESOURCES/Hatch.icns"
+if [[ -f "$RESOURCE_BUNDLE/Roost.icns" ]]; then
+  cp "$RESOURCE_BUNDLE/Roost.icns" "$APP_RESOURCES/Roost.icns"
 fi
 if [[ -f "$RESOURCE_BUNDLE/PrivacyInfo.xcprivacy" ]]; then
   cp "$RESOURCE_BUNDLE/PrivacyInfo.xcprivacy" "$APP_RESOURCES/PrivacyInfo.xcprivacy"
@@ -55,7 +57,7 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>
-  <string>Hatch.icns</string>
+  <string>Roost.icns</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

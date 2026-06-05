@@ -22,7 +22,7 @@ enum Theme {
     }
 }
 
-enum HatchFontRegistrar {
+enum RoostFontRegistrar {
     static func registerFonts() {
         guard let url = Bundle.module.url(forResource: "Sophiecomic-Regular", withExtension: "ttf") else {
             return
@@ -77,34 +77,34 @@ struct PaintedBackdrop: View {
     }
 }
 
-enum HatchImage {
+enum RoostImage {
     static func nsImage() -> NSImage? {
-        if let url = Bundle.module.url(forResource: "hatch-chick-icon", withExtension: "png"),
+        if let url = Bundle.module.url(forResource: "roost-chick-icon", withExtension: "png"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        if let url = Bundle.module.url(forResource: "hatch-illustration", withExtension: "jpg"),
+        if let url = Bundle.module.url(forResource: "roost-illustration", withExtension: "jpg"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        if let url = Bundle.module.url(forResource: "hatch-birkin", withExtension: "png"),
+        if let url = Bundle.module.url(forResource: "roost-birkin", withExtension: "png"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        if let url = Bundle.module.url(forResource: "hatch-logo", withExtension: "jpg"),
+        if let url = Bundle.module.url(forResource: "roost-logo", withExtension: "jpg"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        if let url = Bundle.module.url(forResource: "hatch-logo", withExtension: "png"),
+        if let url = Bundle.module.url(forResource: "roost-logo", withExtension: "png"),
            let image = NSImage(contentsOf: url) {
             return image
         }
 
-        return NSImage(named: "hatch-logo")
+        return NSImage(named: "roost-logo")
     }
 }
 

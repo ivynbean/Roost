@@ -40,7 +40,7 @@ struct BucketWindowView: View {
             AppLogoMark()
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Stash")
+                Text("Roost")
                     .font(Theme.logoFont(size: 30))
                     .foregroundStyle(Theme.pink)
                 Text("Capture links, files, and notes")
@@ -150,7 +150,7 @@ struct BucketWindowView: View {
 private struct AppLogoMark: View {
     var body: some View {
         Group {
-            if let logoImage = HatchImage.nsImage() {
+            if let logoImage = RoostImage.nsImage() {
                 Image(nsImage: logoImage)
                     .resizable()
                     .scaledToFit()
@@ -168,6 +168,6 @@ private struct AppLogoMark: View {
                 .stroke(Theme.wood.opacity(0.16), lineWidth: 1)
         }
         .shadow(color: Theme.ink.opacity(0.10), radius: 8, y: 4)
-        .accessibilityLabel("Stash logo")
+        .accessibilityLabel("Roost logo")
     }
 }

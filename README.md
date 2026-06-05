@@ -1,14 +1,13 @@
-# Hatch / Stash
+# Roost
 
-Hatch is the brand; Stash is the macOS app surface. Stash is a native SwiftUI
-desktop catch-all that launches as a compact always-on-top target, so you can
-paste, type, or drag URLs, file URLs, file paths, and loose notes straight into
-the window.
+Roost is a native SwiftUI desktop catch-all that launches as a compact
+always-on-top target, so you can paste, type, or drag URLs, file URLs, file
+paths, and loose notes straight into the window.
 
 ## What works
 
 - Cute compact macOS catch-all window that can sit above the desktop.
-- Separate Stash Library window opened from the main surface.
+- Separate Roost Library window opened from the main surface.
 - Direct paste/type input in the main window.
 - Drag-and-drop capture for browser links, file URLs, and text.
 - Paste-from-clipboard capture for copied links, file URLs, and text.
@@ -19,7 +18,7 @@ the window.
 - Toolbar, sidebar, search, detail view, context menu moves, and open actions.
 - App Store prep files for icon, privacy manifest, sandbox entitlements, and
   bundle metadata.
-- Unified logging under subsystem `com.ivynbean.Stash`.
+- Unified logging under subsystem `com.ivynbean.Roost`.
 
 ## Run
 
@@ -45,6 +44,6 @@ App Store Connect, signing, provisioning, and artwork-license steps.
 
 ## Next model-backed step
 
-`Sources/Hatch/Services/BookmarkSorter.swift` is intentionally isolated so
+`Sources/Roost/Services/BookmarkSorter.swift` is intentionally isolated so
 the current local rules can be replaced or augmented by an AI classifier without
 rewriting the UI or persistence layer.

@@ -1,5 +1,5 @@
 /* ============================================================
-   HATCH — Colors & Type
+   ROOST — Colors & Type
    A cozy, hand-painted, starry digital catch-all.
    Palette transcribed 1:1 from the app's Theme.swift.
    ============================================================ */
@@ -21,46 +21,46 @@
   /* ====================================================
      1. BASE PALETTE  (raw brand pigments, from Theme.swift)
      ==================================================== */
-  --hatch-pink:     #db3d5c;  /* primary — wordmark, active state    */
-  --hatch-rose:     #f5738c;  /* secondary warm accent, panel tints   */
-  --hatch-blush:    #fcc9c7;  /* soft pink wash, drop highlight        */
-  --hatch-lavender: #baade8;  /* web-link icon tint                    */
-  --hatch-cream:    #faf0db;  /* warm card fill                        */
-  --hatch-paper:    #fcf7eb;  /* main canvas — "paper"                 */
-  --hatch-moss:     #759c63;  /* muted green — labels, leaves          */
-  --hatch-grass:    #adc28a;  /* light green — capsule fills           */
-  --hatch-ink:      #263040;  /* primary text, near-navy charcoal      */
-  --hatch-night:    #142447;  /* deep night-sky navy — drop wells      */
-  --hatch-gold:     #f7c740;  /* stars, sparkles, focus ring           */
-  --hatch-wood:     #80573b;  /* stump brown — file icon, frames       */
-  --hatch-sidebar:  #f0e8d6;  /* sidebar / catch-bar parchment         */
-  --hatch-selected: #3b403d;  /* selection slate (used at low alpha)   */
+  --roost-pink:     #db3d5c;  /* primary — wordmark, active state    */
+  --roost-rose:     #f5738c;  /* secondary warm accent, panel tints   */
+  --roost-blush:    #fcc9c7;  /* soft pink wash, drop highlight        */
+  --roost-lavender: #baade8;  /* web-link icon tint                    */
+  --roost-cream:    #faf0db;  /* warm card fill                        */
+  --roost-paper:    #fcf7eb;  /* main canvas — "paper"                 */
+  --roost-moss:     #759c63;  /* muted green — labels, leaves          */
+  --roost-grass:    #adc28a;  /* light green — capsule fills           */
+  --roost-ink:      #263040;  /* primary text, near-navy charcoal      */
+  --roost-night:    #142447;  /* deep night-sky navy — drop wells      */
+  --roost-gold:     #f7c740;  /* stars, sparkles, focus ring           */
+  --roost-wood:     #80573b;  /* stump brown — file icon, frames       */
+  --roost-sidebar:  #f0e8d6;  /* sidebar / catch-bar parchment         */
+  --roost-selected: #3b403d;  /* selection slate (used at low alpha)   */
 
   /* ====================================================
      2. SEMANTIC SURFACE & TEXT
      ==================================================== */
-  --bg-canvas:      var(--hatch-paper);
-  --bg-sidebar:     var(--hatch-sidebar);
+  --bg-canvas:      var(--roost-paper);
+  --bg-sidebar:     var(--roost-sidebar);
   --bg-card:        #fffdf7;          /* paper @ ~0.95 over canvas */
-  --bg-card-warm:   var(--hatch-cream);
-  --bg-well:        var(--hatch-ink); /* dark "night-sky" drop well */
-  --bg-well-deep:   var(--hatch-night);
+  --bg-card-warm:   var(--roost-cream);
+  --bg-well:        var(--roost-ink); /* dark "night-sky" drop well */
+  --bg-well-deep:   var(--roost-night);
 
-  --fg-1:           var(--hatch-ink);              /* primary text   */
+  --fg-1:           var(--roost-ink);              /* primary text   */
   --fg-2:           rgba(38, 48, 64, 0.68);        /* secondary text */
   --fg-3:           rgba(38, 48, 64, 0.52);        /* tertiary/meta  */
   --fg-muted:       rgba(38, 48, 64, 0.34);        /* disabled/faint */
-  --fg-on-dark:     var(--hatch-paper);            /* text on night  */
+  --fg-on-dark:     var(--roost-paper);            /* text on night  */
 
-  --accent:         var(--hatch-pink);   /* primary action / active  */
-  --accent-soft:    var(--hatch-rose);   /* hover-ward warm accent   */
-  --accent-quiet:   var(--hatch-moss);   /* category labels          */
-  --focus-ring:     var(--hatch-gold);   /* drop target / focus      */
+  --accent:         var(--roost-pink);   /* primary action / active  */
+  --accent-soft:    var(--roost-rose);   /* hover-ward warm accent   */
+  --accent-quiet:   var(--roost-moss);   /* category labels          */
+  --focus-ring:     var(--roost-gold);   /* drop target / focus      */
 
   /* Icon kind tints (from BookmarkRow) */
-  --kind-web:       var(--hatch-lavender);
-  --kind-file:      var(--hatch-wood);
-  --kind-text:      var(--hatch-rose);
+  --kind-web:       var(--roost-lavender);
+  --kind-file:      var(--roost-wood);
+  --kind-text:      var(--roost-rose);
 
   /* ====================================================
      3. BORDERS
@@ -128,17 +128,17 @@
 /* ============================================================
    SEMANTIC ELEMENT DEFAULTS  (opt-in helpers)
    ============================================================ */
-.hatch-wordmark { font: var(--wordmark); color: var(--hatch-pink); letter-spacing: 0.01em; }
-.hatch-display  { font: var(--display);  color: var(--fg-1); }
-.hatch-h1 { font: var(--h1); color: var(--fg-1); }
-.hatch-h2 { font: var(--h2); color: var(--fg-1); }
-.hatch-h3 { font: var(--h3); color: var(--fg-1); }
-.hatch-body { font: var(--body); color: var(--fg-1); }
-.hatch-caption { font: var(--caption); color: var(--fg-2); }
-.hatch-mono { font: var(--mono); color: var(--fg-2); }
+.roost-wordmark { font: var(--wordmark); color: var(--roost-pink); letter-spacing: 0.01em; }
+.roost-display  { font: var(--display);  color: var(--fg-1); }
+.roost-h1 { font: var(--h1); color: var(--fg-1); }
+.roost-h2 { font: var(--h2); color: var(--fg-1); }
+.roost-h3 { font: var(--h3); color: var(--fg-1); }
+.roost-body { font: var(--body); color: var(--fg-1); }
+.roost-caption { font: var(--caption); color: var(--fg-2); }
+.roost-mono { font: var(--mono); color: var(--fg-2); }
 
 /* Category capsule — the app's signature green pill */
-.hatch-capsule {
+.roost-capsule {
   font: var(--tag);
   color: var(--accent-quiet);
   background: rgba(173, 194, 138, 0.16);
@@ -150,7 +150,7 @@
 }
 
 /* Paper panel — the app's core container (PaperPanel modifier) */
-.hatch-panel {
+.roost-panel {
   background: rgba(252, 247, 235, 0.82);
   border: 1px solid var(--border-tint);
   border-radius: var(--r-md);

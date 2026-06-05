@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_PATH="$ROOT_DIR/dist/Stash.app"
+APP_PATH="$ROOT_DIR/dist/Roost.app"
 ENTITLEMENTS="$ROOT_DIR/entitlements/AppStore.entitlements"
 
 cd "$ROOT_DIR"

@@ -2,12 +2,12 @@ import AppKit
 import SwiftUI
 
 @main
-struct StashApp: App {
+struct RoostApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = BookmarkStore()
 
     var body: some Scene {
-        WindowGroup("Stash", id: "bucket") {
+        WindowGroup("Roost", id: "bucket") {
             BucketWindowView()
                 .environmentObject(store)
                 .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)
@@ -15,7 +15,7 @@ struct StashApp: App {
                 .tint(Theme.pink)
         }
 
-        WindowGroup("Stash Library", id: "library") {
+        WindowGroup("Roost Library", id: "library") {
             ContentView()
                 .environmentObject(store)
                 .frame(minWidth: 760, idealWidth: 1120, minHeight: 520, idealHeight: 720)
@@ -50,8 +50,8 @@ struct StashApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        HatchFontRegistrar.registerFonts()
-        if let appIcon = HatchImage.nsImage() {
+        RoostFontRegistrar.registerFonts()
+        if let appIcon = RoostImage.nsImage() {
             NSApp.applicationIconImage = appIcon
         }
         NSApp.setActivationPolicy(.regular)

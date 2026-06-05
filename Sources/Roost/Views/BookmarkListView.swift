@@ -123,7 +123,7 @@ private struct EmptyPileView: View {
             Text("Nothing tucked away yet")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(Theme.ink)
-            Text("Paste, drop, or type anything into Stash to save it.")
+            Text("Paste, drop, or type anything into Roost to save it.")
                 .font(.callout)
                 .foregroundStyle(Theme.ink.opacity(0.66))
         }

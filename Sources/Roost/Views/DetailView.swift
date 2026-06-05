@@ -152,17 +152,25 @@ private struct DetailPlaceholder: View {
         VStack(spacing: 16) {
             ZStack(alignment: .topTrailing) {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(Theme.wood.opacity(0.85))
+                    .fill(Theme.blush.opacity(0.82))
                     .frame(width: 148, height: 112)
                     .rotationEffect(.degrees(-5))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .stroke(Theme.rose.opacity(0.30), lineWidth: 1)
+                    }
 
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Theme.night)
+                    .fill(Theme.cream.opacity(0.96))
                     .frame(width: 114, height: 84)
                     .overlay {
                         StarScatter()
-                            .opacity(0.95)
+                            .opacity(0.55)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Theme.gold.opacity(0.50), lineWidth: 1)
                     }
                     .offset(x: 12, y: 24)
             }
@@ -171,7 +179,7 @@ private struct DetailPlaceholder: View {
                 .font(.title2.weight(.bold))
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
-            Text("Links, files, and notes you save in Stash appear here.")
+            Text("Links, files, and notes you save in Roost appear here.")
                 .font(.callout)
                 .foregroundStyle(Theme.ink.opacity(0.68))
                 .multilineTextAlignment(.center)

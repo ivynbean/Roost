@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "Stash",
+    name: "Roost",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "Stash", targets: ["Hatch"])
+        .executable(name: "Roost", targets: ["Roost"])
     ],
     targets: [
         .executableTarget(
-            name: "Hatch",
-            path: "Sources/Hatch",
+            name: "Roost",
+            path: "Sources/Roost",
             resources: [
                 .process("Resources")
             ]
