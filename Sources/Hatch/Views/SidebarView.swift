@@ -69,7 +69,7 @@ private struct SidebarLogo: View {
             }
 
             Text("Stash")
-                .font(.title2.weight(.semibold))
+                .font(Theme.logoFont(size: 34))
                 .foregroundStyle(Theme.pink)
         }
         .frame(maxWidth: .infinity)

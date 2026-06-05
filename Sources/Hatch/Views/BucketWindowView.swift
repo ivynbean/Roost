@@ -41,7 +41,7 @@ struct BucketWindowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Stash")
-                    .font(.title2.weight(.semibold))
+                    .font(Theme.logoFont(size: 30))
                     .foregroundStyle(Theme.pink)
                 Text("Capture links, files, and notes")
                     .font(.caption)

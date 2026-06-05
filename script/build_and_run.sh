@@ -23,7 +23,7 @@ pkill -x "$LEGACY_APP_NAME" >/dev/null 2>&1 || true
 swift build
 BUILD_DIR="$(swift build --show-bin-path)"
 BUILD_BINARY="$BUILD_DIR/$APP_NAME"
-RESOURCE_BUNDLE="$BUILD_DIR/Hatch_Hatch.bundle"
+RESOURCE_BUNDLE="$BUILD_DIR/Stash_Hatch.bundle"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
@@ -31,6 +31,9 @@ cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 if [[ -d "$RESOURCE_BUNDLE" ]]; then
   cp -R "$RESOURCE_BUNDLE" "$APP_RESOURCES/"
+fi
+if [[ -f "$RESOURCE_BUNDLE/Hatch.icns" ]]; then
+  cp "$RESOURCE_BUNDLE/Hatch.icns" "$APP_RESOURCES/Hatch.icns"
 fi
 
 cat >"$INFO_PLIST" <<PLIST
@@ -44,6 +47,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>Hatch.icns</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>

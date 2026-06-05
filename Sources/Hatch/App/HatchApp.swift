@@ -50,6 +50,10 @@ struct StashApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        HatchFontRegistrar.registerFonts()
+        if let appIcon = HatchImage.nsImage() {
+            NSApp.applicationIconImage = appIcon
+        }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
