@@ -30,6 +30,14 @@ Use the project script:
 
 The Codex Run action is wired to the same script.
 
+## Test
+
+Run the SwiftPM test suite:
+
+```bash
+swift test
+```
+
 ## App Store Prep
 
 Use the local packaging helper to stage and validate the app bundle:
