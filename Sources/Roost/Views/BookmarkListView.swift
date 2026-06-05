@@ -4,10 +4,13 @@ struct BookmarkListView: View {
     @EnvironmentObject private var store: BookmarkStore
 
     var body: some View {
-        List(selection: $store.selectedBookmarkID) {
-            ForEach(store.visibleBookmarks) { bookmark in
-                BookmarkRow(bookmark: bookmark)
-                    .tag(bookmark.id)
+        ScrollView {
+            LazyVStack(spacing: 6) {
+                ForEach(store.visibleBookmarks) { bookmark in
+                    BookmarkRow(
+                        bookmark: bookmark,
+                        isSelected: bookmark.id == store.selectedBookmarkID
+                    )
                     .onDrag {
                         NSItemProvider(object: bookmark.id.uuidString as NSString)
                     }
@@ -24,10 +27,10 @@ struct BookmarkListView: View {
                             }
                         }
                     }
+                }
             }
+            .padding(12)
         }
-        .listStyle(.inset)
-        .scrollContentBackground(.hidden)
         .background(PaintedBackdrop())
         .navigationTitle(store.selectedCategory.rawValue)
         .overlay {
@@ -41,53 +44,65 @@ struct BookmarkListView: View {
 private struct BookmarkRow: View {
     @EnvironmentObject private var store: BookmarkStore
     let bookmark: Bookmark
+    let isSelected: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(iconTint.opacity(0.18))
-                Image(systemName: iconName)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(iconTint)
-            }
-            .frame(width: 34, height: 34)
+        Button {
+            store.selectedBookmarkID = bookmark.id
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(iconTint.opacity(isSelected ? 0.26 : 0.18))
+                    Image(systemName: iconName)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(iconTint)
+                }
+                .frame(width: 34, height: 34)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(bookmark.title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(bookmark.title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(isSelected ? Color.white : Theme.ink)
+                        .lineLimit(1)
+
+                    Text(bookmark.location)
+                        .font(.caption)
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.72) : Theme.ink.opacity(0.62))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 10)
+
+                Button {
+                    store.toggleImportant(bookmark)
+                } label: {
+                    Image(systemName: bookmark.isImportant ? "flag.fill" : "flag")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(bookmark.isImportant ? Theme.pink : (isSelected ? Color.white.opacity(0.62) : Theme.ink.opacity(0.34)))
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help(bookmark.isImportant ? "Unflag" : "Flag important")
+
+                Text(bookmark.category.rawValue)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.80) : Theme.moss)
                     .lineLimit(1)
-
-                Text(bookmark.location)
-                    .font(.caption)
-                    .foregroundStyle(Theme.ink.opacity(0.62))
-                    .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(isSelected ? Color.white.opacity(0.14) : Theme.grass.opacity(0.16), in: Capsule())
             }
-
-            Spacer(minLength: 10)
-
-            Button {
-                store.toggleImportant(bookmark)
-            } label: {
-                Image(systemName: bookmark.isImportant ? "flag.fill" : "flag")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(bookmark.isImportant ? Theme.pink : Theme.ink.opacity(0.34))
-                    .frame(width: 24, height: 24)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Theme.pink : Color.clear)
             }
-            .buttonStyle(.plain)
-            .help(bookmark.isImportant ? "Unflag" : "Flag important")
-
-            Text(bookmark.category.rawValue)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(Theme.moss)
-                .lineLimit(1)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(Theme.grass.opacity(0.16), in: Capsule())
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 4)
+        .buttonStyle(.plain)
     }
 
     private var iconName: String {
