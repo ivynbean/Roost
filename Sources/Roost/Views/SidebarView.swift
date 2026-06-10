@@ -25,7 +25,7 @@ struct SidebarView: View {
                             isSelected: category == store.selectedCategory,
                             store: store
                         ) {
-                            store.selectedCategory = category
+                            store.selectCategory(category)
                         }
                     }
                 }
@@ -39,7 +39,7 @@ struct SidebarView: View {
         .navigationTitle("piles")
         .onAppear {
             if store.selectedCategory == .important {
-                store.selectedCategory = .inbox
+                store.selectCategory(.inbox)
             }
         }
     }

@@ -44,6 +44,11 @@ final class BookmarkStore: ObservableObject {
         return bookmarks.first { $0.id == selectedBookmarkID }
     }
 
+    func selectCategory(_ category: BookmarkCategory) {
+        selectedCategory = category
+        selectedBookmarkID = visibleBookmarks.first?.id
+    }
+
     func add(rawValue: String) {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -72,6 +77,7 @@ final class BookmarkStore: ObservableObject {
         guard let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) else { return }
         bookmarks[index].category = category
         selectedCategory = category
+        selectedBookmarkID = bookmark.id
         logger.info("Moved bookmark id=\(bookmark.id.uuidString, privacy: .public) category=\(category.rawValue, privacy: .public)")
     }
 
