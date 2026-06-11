@@ -2,23 +2,37 @@ import SwiftUI
 import CoreText
 
 enum Theme {
-    static let pink = Color(red: 0.86, green: 0.24, blue: 0.36)
-    static let rose = Color(red: 0.96, green: 0.45, blue: 0.55)
+    static let pink = Color(red: 0.80, green: 0.16, blue: 0.30)
+    static let rose = Color(red: 0.92, green: 0.38, blue: 0.48)
     static let blush = Color(red: 0.99, green: 0.79, blue: 0.78)
-    static let lavender = Color(red: 0.73, green: 0.68, blue: 0.91)
+    static let lavender = Color(red: 0.52, green: 0.45, blue: 0.78)
     static let cream = Color(red: 0.98, green: 0.94, blue: 0.86)
     static let paper = Color(red: 0.99, green: 0.97, blue: 0.92)
-    static let moss = Color(red: 0.46, green: 0.61, blue: 0.39)
+    static let moss = Color(red: 0.33, green: 0.48, blue: 0.26)
     static let grass = Color(red: 0.68, green: 0.76, blue: 0.54)
-    static let ink = Color(red: 0.15, green: 0.19, blue: 0.25)
+    static let ink = Color(red: 0.10, green: 0.12, blue: 0.16)
     static let night = Color(red: 0.08, green: 0.14, blue: 0.28)
-    static let gold = Color(red: 0.97, green: 0.78, blue: 0.25)
+    static let gold = Color(red: 0.85, green: 0.62, blue: 0.10)
     static let wood = Color(red: 0.50, green: 0.34, blue: 0.23)
-    static let sidebar = Color(red: 0.94, green: 0.91, blue: 0.84)
+    static let sidebar = Color(red: 0.93, green: 0.89, blue: 0.81)
     static let selected = Color(red: 0.23, green: 0.25, blue: 0.24)
+
+    // Semantic tokens — prefer these over ad-hoc opacities so text keeps a
+    // readable floor of contrast against the paper backgrounds.
+    static let textPrimary = ink
+    static let textSecondary = ink.opacity(0.78)
+    static let textTertiary = ink.opacity(0.60)
+    static let card = Color.white
+    static let cardStroke = wood.opacity(0.22)
 
     static func logoFont(size: CGFloat) -> Font {
         .custom("Sophiecomic Regular", size: size)
+    }
+
+    private static let projectPalette: [Color] = [pink, moss, lavender, gold, wood, rose]
+
+    static func projectColor(_ index: Int) -> Color {
+        projectPalette[((index % projectPalette.count) + projectPalette.count) % projectPalette.count]
     }
 }
 
@@ -35,18 +49,18 @@ enum RoostFontRegistrar {
 struct PaperPanel: ViewModifier {
     var cornerRadius: CGFloat = 10
     var tint: Color = Theme.rose
-    var fillOpacity: Double = 0.82
+    var fillOpacity: Double = 0.94
 
     func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.paper.opacity(fillOpacity))
-                    .shadow(color: tint.opacity(0.12), radius: 12, y: 5)
+                    .fill(Theme.card.opacity(fillOpacity))
+                    .shadow(color: Theme.ink.opacity(0.10), radius: 10, y: 4)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(tint.opacity(0.35), lineWidth: 1)
+                    .stroke(tint.opacity(0.55), lineWidth: 1)
             }
     }
 }
@@ -78,6 +92,16 @@ struct PaintedBackdrop: View {
 }
 
 enum RoostImage {
+    /// Status-bar sized copy of the app icon for the MenuBarExtra.
+    static func menuBarNSImage() -> NSImage? {
+        guard let source = nsImage() else { return nil }
+        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            source.draw(in: rect)
+            return true
+        }
+        return icon
+    }
+
     static func nsImage() -> NSImage? {
         if let url = Bundle.module.url(forResource: "roost-chick-icon", withExtension: "png"),
            let image = NSImage(contentsOf: url) {

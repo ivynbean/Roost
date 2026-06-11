@@ -45,7 +45,7 @@ struct BucketWindowView: View {
                     .foregroundStyle(Theme.pink)
                 Text("Capture links, files, and notes")
                     .font(.caption)
-                    .foregroundStyle(Theme.ink.opacity(0.64))
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
 

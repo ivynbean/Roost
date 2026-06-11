@@ -76,6 +76,8 @@ cat >"$INFO_PLIST" <<PLIST
   <true/>
   <key>NSHumanReadableCopyright</key>
   <string>Copyright © 2026 ivynbean. All rights reserved.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Roost can show today's calendar events beside your notes. Events are read locally and never leave this Mac.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>
