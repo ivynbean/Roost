@@ -5,6 +5,22 @@ always-on-top target, so you can paste, type, or drag URLs, file URLs, file
 paths, and loose notes straight into the window — and an Agenda-style
 notebook for organizing your thoughts by day and project, all stored locally.
 
+## Download Roost
+
+If you just want to try the app, go to [GitHub Releases](https://github.com/ivynbean/Roost/releases)
+and download `Roost.app.zip` from the newest alpha release.
+
+To install:
+
+1. Download `Roost.app.zip`.
+2. Double-click the zip to unpack `Roost.app`.
+3. Drag `Roost.app` into your `Applications` folder.
+4. Open it from `Applications`.
+
+If macOS warns that the app is from an unidentified developer, open
+`System Settings -> Privacy & Security`, then choose `Open Anyway` for Roost.
+That warning is expected until the app is fully signed and notarized.
+
 ## What works
 
 ### Capture
