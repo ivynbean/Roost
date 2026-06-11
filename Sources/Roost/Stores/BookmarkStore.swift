@@ -106,6 +106,7 @@ final class BookmarkStore: ObservableObject {
         guard let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) else { return }
         bookmarks[index].category = category
         selectedCategory = category
+        selectedBookmarkID = bookmark.id
         logger.info("Moved bookmark id=\(bookmark.id.uuidString, privacy: .public) category=\(category.rawValue, privacy: .public)")
     }
 
