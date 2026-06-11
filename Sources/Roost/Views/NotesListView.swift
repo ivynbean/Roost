@@ -29,96 +29,86 @@ struct NotesListView: View {
     }
 
     private var notesOnlyBody: some View {
-        Group {
-            if groupedNotes.isEmpty {
-                VStack(spacing: 0) {
-                    if showsCalendarStrip {
-                        TodayCalendarStrip()
-                            .padding(.horizontal, 12)
-                            .padding(.top, 12)
-                    }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if showsCalendarStrip {
+                    TodayCalendarStrip()
+                        .padding(.bottom, 8)
+                }
 
-                    Spacer(minLength: 16)
+                if groupedNotes.isEmpty {
+                    TimelineSectionHeader(
+                        title: listTitle,
+                        count: 0,
+                        isExpanded: true
+                    ) {}
 
-                    EmptyNotesView(selection: navigation.selection) {
+                    InlineEmptyRow(
+                        symbolName: emptySymbolName,
+                        title: emptyTitle,
+                        message: emptyMessage
+                    ) {
                         addNote()
                     }
-                    .padding(.horizontal, 24)
-
-                    Spacer(minLength: 16)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        if showsCalendarStrip {
-                            TodayCalendarStrip()
-                                .padding(.bottom, 8)
-                        }
-
-                        ForEach(groupedNotes, id: \.day) { group in
-                            Section {
-                                if !collapsedDays.contains(group.day) {
-                                    ForEach(group.notes) { note in
-                                        NoteRow(note: note, isSelected: note.id == noteStore.selectedNoteID)
-                                            .contextMenu {
-                                                Button(note.isOnAgenda ? "Remove from Agenda" : "Put on the Agenda") {
-                                                    noteStore.toggleAgenda(note.id)
-                                                }
-                                                Button(note.isTask ? "Convert to Note" : "Make Task") {
-                                                    noteStore.update(note.id) {
-                                                        $0.isTask.toggle()
-                                                        if !$0.isTask { $0.isDone = false }
-                                                    }
-                                                }
-                                                if note.isTask {
-                                                    Button(note.isDone ? "Mark Not Done" : "Mark Done") {
-                                                        noteStore.toggleDone(note.id)
-                                                    }
-                                                }
-                                                Menu("Move to Project") {
-                                                    ForEach(noteStore.projects) { project in
-                                                        Button(project.name) {
-                                                            noteStore.update(note.id) { $0.projectID = project.id }
-                                                        }
-                                                    }
-                                                    Button("No Project") {
-                                                        noteStore.update(note.id) { $0.projectID = nil }
-                                                    }
-                                                }
-                                                Divider()
-                                                Button("Delete", role: .destructive) {
-                                                    noteStore.deleteNote(note.id)
+                    .padding(.top, 8)
+                } else {
+                    ForEach(groupedNotes, id: \.day) { group in
+                        Section {
+                            if !collapsedDays.contains(group.day) {
+                                ForEach(group.notes) { note in
+                                    NoteRow(note: note, isSelected: note.id == noteStore.selectedNoteID)
+                                        .onDrag {
+                                            NSItemProvider(object: note.id.uuidString as NSString)
+                                        }
+                                        .contextMenu {
+                                            Button(note.isOnAgenda ? "Remove from Agenda" : "Put on the Agenda") {
+                                                noteStore.toggleAgenda(note.id)
+                                            }
+                                            Button(note.isTask ? "Convert to Note" : "Make Task") {
+                                                noteStore.update(note.id) {
+                                                    $0.isTask.toggle()
+                                                    if !$0.isTask { $0.isDone = false }
                                                 }
                                             }
-                                    }
+                                            if note.isTask {
+                                                Button(note.isDone ? "Mark Not Done" : "Mark Done") {
+                                                    noteStore.toggleDone(note.id)
+                                                }
+                                            }
+                                            Menu("Move to Project") {
+                                                ForEach(noteStore.projects) { project in
+                                                    Button(project.name) {
+                                                        noteStore.update(note.id) { $0.projectID = project.id }
+                                                    }
+                                                }
+                                                Button("No Project") {
+                                                    noteStore.update(note.id) { $0.projectID = nil }
+                                                }
+                                            }
+                                            Divider()
+                                            Button("Delete", role: .destructive) {
+                                                noteStore.deleteNote(note.id)
+                                            }
+                                        }
                                 }
-                            } header: {
-                                TimelineSectionHeader(
-                                    title: dayLabel(for: group.day),
-                                    count: group.notes.count,
-                                    isExpanded: !collapsedDays.contains(group.day)
-                                ) {
-                                    toggleDay(group.day)
-                                }
+                            }
+                        } header: {
+                            TimelineSectionHeader(
+                                title: dayLabel(for: group.day),
+                                count: group.notes.count,
+                                isExpanded: !collapsedDays.contains(group.day)
+                            ) {
+                                toggleDay(group.day)
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .background(PaintedBackdrop())
         .navigationTitle(listTitle)
-        .toolbar {
-            ToolbarItem {
-                Button(action: addNote) {
-                    Label("New Note", systemImage: "square.and.pencil")
-                }
-                .help("New Note")
-            }
-        }
     }
 
     private var todayNotes: [Note] {
@@ -191,6 +181,34 @@ struct NotesListView: View {
             noteStore.toggleAgenda(note.id)
         }
     }
+
+    private var emptyTitle: String {
+        switch navigation.selection {
+        case .agenda: "Nothing on the agenda"
+        case .tasks: "No tasks yet"
+        case .allNotes: "No notes yet"
+        case .project(let id): "Nothing in \(noteStore.project(for: id)?.name ?? "this project")"
+        default: "No notes yet"
+        }
+    }
+
+    private var emptyMessage: String {
+        switch navigation.selection {
+        case .agenda: "Pin a note to keep it on your agenda."
+        case .tasks: "Create a task or turn any note into one."
+        case .project: "Drop a link, file, or note here to start collecting work."
+        default: "Use the capture bar above or start a note."
+        }
+    }
+
+    private var emptySymbolName: String {
+        switch navigation.selection {
+        case .agenda: "pin"
+        case .tasks: "checkmark.circle"
+        case .project: "folder"
+        default: "square.and.pencil"
+        }
+    }
 }
 
 private struct TodayTimelineView: View {
@@ -232,6 +250,9 @@ private struct TodayTimelineView: View {
                     } else {
                         ForEach(notes) { note in
                             NoteRow(note: note, isSelected: note.id == noteStore.selectedNoteID)
+                                .onDrag {
+                                    NSItemProvider(object: note.id.uuidString as NSString)
+                                }
                         }
                     }
                 }
@@ -258,6 +279,9 @@ private struct TodayTimelineView: View {
                                 bookmark: bookmark,
                                 isSelected: bookmark.id == bookmarkStore.selectedBookmarkID
                             )
+                            .onDrag {
+                                NSItemProvider(object: bookmark.id.uuidString as NSString)
+                            }
                         }
                     }
                 }

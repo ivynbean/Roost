@@ -51,6 +51,19 @@ private struct BookmarkDetail: View {
                             store.toggleImportant(bookmark)
                         }
 
+                        if bookmark.kind == .file {
+                            Button {
+                                store.openInPreview(bookmark)
+                            } label: {
+                                Label("Preview", systemImage: "photo")
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 30)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Theme.textSecondary)
+                            .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        }
+
                         Button {
                             store.open(bookmark)
                         } label: {
@@ -77,8 +90,11 @@ private struct BookmarkDetail: View {
 
     @ViewBuilder
     private var sections: some View {
-            if bookmark.kind == .file, let image = NSImage(contentsOfFile: bookmark.location) {
-                DetailSection(title: "Preview") {
+        if bookmark.kind == .file, let image = NSImage(contentsOfFile: bookmark.location) {
+            DetailSection(title: "Preview") {
+                Button {
+                    store.openInPreview(bookmark)
+                } label: {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
@@ -89,19 +105,50 @@ private struct BookmarkDetail: View {
                                 .stroke(Theme.cardStroke, lineWidth: 1)
                         }
                 }
-            }
+                .buttonStyle(.plain)
+                .help("Open in Preview")
+                .onDrag {
+                    NSItemProvider(object: URL(fileURLWithPath: bookmark.location) as NSURL)
+                }
 
-            if bookmark.kind == .web, let previewURL = URL(string: bookmark.location) {
-                DetailSection(title: "Viewer") {
-                    WebPreview(url: previewURL)
-                        .frame(height: 320)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .stroke(Theme.cardStroke, lineWidth: 1)
-                        }
+                Text("Click to open in Preview or drag the file out.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textTertiary)
+                    .padding(.top, 2)
+            }
+        } else if bookmark.kind == .file {
+            DetailSection(title: "Preview") {
+                Button {
+                    store.openInPreview(bookmark)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 15, weight: .semibold))
+                        Text("Open this file in Preview")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 68)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textSecondary)
+                .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .onDrag {
+                    NSItemProvider(object: URL(fileURLWithPath: bookmark.location) as NSURL)
                 }
             }
+        }
+
+        if bookmark.kind == .web, let previewURL = URL(string: bookmark.location) {
+            DetailSection(title: "Viewer") {
+                WebPreview(url: previewURL)
+                    .frame(height: 320)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(Theme.cardStroke, lineWidth: 1)
+                    }
+            }
+        }
     }
 }
 
@@ -119,6 +166,8 @@ private struct WebPreview: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsAirPlayForMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = .all
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         let webView = PreviewWebView(frame: .zero, configuration: configuration)
         webView.allowsMagnification = true
         webView.setValue(false, forKey: "drawsBackground")
