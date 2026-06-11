@@ -7,13 +7,12 @@ struct ContentView: View {
     @EnvironmentObject private var navigation: NavigationModel
     @State private var isDropTargeted = false
     @State private var quickCaptureText = ""
-    @State private var splitVisibility: NavigationSplitViewVisibility = .doubleColumn
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $splitVisibility) {
+        HSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 176, ideal: 192, max: 220)
-        } content: {
+                .frame(minWidth: 176, idealWidth: 192, maxWidth: 220)
+
             VStack(spacing: 0) {
                 QuickCaptureBar(text: $quickCaptureText)
 
@@ -35,56 +34,18 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationSplitViewColumnWidth(min: 260, ideal: 380)
-            .toolbarBackground(Theme.paper, for: .windowToolbar)
-            .toolbarBackground(.visible, for: .windowToolbar)
-        } detail: {
+
             if shouldShowDetail {
                 DetailView()
-                    .frame(minWidth: 240)
-                    .toolbarBackground(Theme.paper, for: .windowToolbar)
-                    .toolbarBackground(.visible, for: .windowToolbar)
-            } else {
-                EmptyView()
+                    .frame(minWidth: 360, idealWidth: 440, maxWidth: 560)
+                    .background(Theme.paper)
             }
         }
-        .navigationSplitViewStyle(.balanced)
         .background(Theme.paper)
         .navigationTitle("Roost")
-        .toolbar {
-            if !navigation.selection.isNotesDomain {
-                ToolbarItemGroup {
-                    Button(role: .destructive) {
-                        store.deleteSelected()
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                    .disabled(store.selectedBookmark == nil)
-                }
-            }
-        }
-        .overlay {
-            if isDropTargeted {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .stroke(Theme.gold.opacity(0.85), lineWidth: 3)
-                    .padding(14)
-                    .allowsHitTesting(false)
-            }
-        }
         .onDrop(of: BookmarkDropHandler.acceptedTypes, isTargeted: $isDropTargeted) { providers in
             BookmarkDropHandler.handle(providers, store: store)
         }
-        .onAppear(perform: syncDetailVisibility)
-        .onChange(of: noteStore.selectedNoteID) { _, _ in
-            syncDetailVisibility()
-        }
-        .onChange(of: store.selectedBookmarkID) { _, _ in
-            syncDetailVisibility()
-        }
-    }
-
-    private func syncDetailVisibility() {
-        splitVisibility = shouldShowDetail ? .all : .doubleColumn
     }
 
     private var shouldShowDetail: Bool {

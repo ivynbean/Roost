@@ -48,6 +48,10 @@ final class BookmarkStore: ObservableObject {
         return bookmarks.first { $0.id == selectedBookmarkID }
     }
 
+    func containsBookmark(id: UUID) -> Bool {
+        bookmarks.contains { $0.id == id }
+    }
+
     func bookmarks(in category: BookmarkCategory) -> [Bookmark] {
         bookmarks.filter { bookmark in
             if category == .screenshots {
@@ -61,6 +65,14 @@ final class BookmarkStore: ObservableObject {
     func add(rawValue: String) -> Bookmark? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+
+        if let internalID = UUID(uuidString: trimmed),
+           let existing = bookmarks.first(where: { $0.id == internalID }) {
+            selectedBookmarkID = existing.id
+            selectedCategory = existing.displayCategory
+            lastImportMessage = "Already in your roost: \(existing.displayTitle)"
+            return existing
+        }
 
         let bookmark = sorter.bookmark(from: trimmed)
         if let existing = existingBookmark(matching: bookmark.location) {
@@ -184,6 +196,44 @@ final class BookmarkStore: ObservableObject {
         logger.info("Opened bookmark id=\(bookmark.id.uuidString, privacy: .public)")
     }
 
+    func openInPreview(_ bookmark: Bookmark) {
+        guard let url = resolvedOpenURL(for: bookmark), url.isFileURL else {
+            open(bookmark)
+            return
+        }
+
+        let path = url.path
+        guard FileManager.default.fileExists(atPath: path) else {
+            lastImportMessage = "File not found: \(bookmark.displayTitle)"
+            logger.error("Preview failed, missing file path=\(path, privacy: .public)")
+            return
+        }
+
+        guard let previewAppURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Preview") else {
+            open(bookmark)
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open([url], withApplicationAt: previewAppURL, configuration: configuration) { [weak self] _, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let error {
+                    self.lastImportMessage = "Couldn't open \(bookmark.displayTitle) in Preview."
+                    self.logger.error("Preview app open failed id=\(bookmark.id.uuidString, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+                    return
+                }
+
+                if let index = self.bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
+                    self.bookmarks[index].lastOpenedAt = Date()
+                }
+                self.lastImportMessage = "Opened \(bookmark.displayTitle) in Preview"
+                self.logger.info("Opened bookmark in Preview id=\(bookmark.id.uuidString, privacy: .public)")
+            }
+        }
+    }
+
     /// Files a system screenshot without stealing focus: no selection or
     /// category change, since captures happen while the user is mid-task.
     func addScreenshot(_ url: URL) {
@@ -271,7 +321,18 @@ final class BookmarkStore: ObservableObject {
     }
 
     private func normalizeLegacyBookmarks(_ decoded: [Bookmark]) -> [Bookmark] {
-        decoded.map { bookmark in
+        let existingIDs = Set(decoded.map(\.id))
+
+        return decoded.compactMap { bookmark in
+            if bookmark.kind == .text,
+               bookmark.title == bookmark.location,
+               bookmark.location == bookmark.summary,
+               let referencedID = UUID(uuidString: bookmark.title.trimmingCharacters(in: .whitespacesAndNewlines)),
+               existingIDs.contains(referencedID) {
+                logger.info("Dropping internal drag ghost bookmark id=\(bookmark.id.uuidString, privacy: .public) referenced=\(referencedID.uuidString, privacy: .public)")
+                return nil
+            }
+
             var normalized = bookmark
             normalized.category = bookmark.displayCategory
             if normalized.kind == .file {

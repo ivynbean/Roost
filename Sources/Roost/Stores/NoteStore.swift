@@ -134,6 +134,21 @@ final class NoteStore: ObservableObject {
         }
     }
 
+    @discardableResult
+    func addLinkedBookmarkNote(for bookmark: Bookmark, to projectID: UUID) -> Note {
+        let note = addNote(projectID: projectID)
+        update(note.id) { draft in
+            draft.title = bookmark.displayTitle
+            if bookmark.kind == .text {
+                draft.content = bookmark.summary.isEmpty ? bookmark.location : bookmark.summary
+            }
+            if bookmark.kind != .text {
+                draft.linkedBookmarkIDs = [bookmark.id]
+            }
+        }
+        return note
+    }
+
     func detach(bookmarkID: UUID, from noteID: Note.ID) {
         update(noteID) { note in
             note.linkedBookmarkIDs.removeAll { $0 == bookmarkID }

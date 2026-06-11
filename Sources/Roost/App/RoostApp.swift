@@ -12,14 +12,21 @@ struct RoostApp: App {
     @AppStorage("roost.captureScreenshots") private var captureScreenshots = true
 
     var body: some Scene {
-        WindowGroup("Roost", id: "bucket") {
-            BucketWindowView()
+        WindowGroup("Roost Library", id: "library") {
+            ContentView()
                 .environmentObject(store)
                 .environmentObject(noteStore)
                 .environmentObject(navigation)
                 .environmentObject(calendarService)
-                .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)
-                .background(WindowConfigurator(style: .bucket))
+                .overlay {
+                    StatusItemBootstrap(
+                        appDelegate: appDelegate,
+                        screenshotWatcher: screenshotWatcher
+                    )
+                    .environmentObject(store)
+                }
+                .frame(minWidth: 700, idealWidth: 1120, minHeight: 520, idealHeight: 720)
+                .background(WindowConfigurator(style: .library))
                 .tint(Theme.pink)
                 .onAppear {
                     if captureScreenshots {
@@ -28,14 +35,14 @@ struct RoostApp: App {
                 }
         }
 
-        WindowGroup("Roost Library", id: "library") {
-            ContentView()
+        WindowGroup("Roost", id: "bucket") {
+            BucketWindowView()
                 .environmentObject(store)
                 .environmentObject(noteStore)
                 .environmentObject(navigation)
                 .environmentObject(calendarService)
-                .frame(minWidth: 700, idealWidth: 1120, minHeight: 520, idealHeight: 720)
-                .background(WindowConfigurator(style: .library))
+                .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)
+                .background(WindowConfigurator(style: .bucket))
                 .tint(Theme.pink)
         }
         .commands {
@@ -70,66 +77,14 @@ struct RoostApp: App {
                 .environmentObject(calendarService)
                 .environmentObject(screenshotWatcher)
         }
-
-        MenuBarExtra {
-            StatusMenuView(screenshotWatcher: screenshotWatcher)
-                .environmentObject(store)
-        } label: {
-            if let icon = RoostImage.menuBarNSImage() {
-                Image(nsImage: icon)
-            } else {
-                Image(systemName: "tray.and.arrow.down.fill")
-            }
-        }
     }
 }
 
-private struct StatusMenuView: View {
-    @EnvironmentObject private var store: BookmarkStore
-    @Environment(\.openWindow) private var openWindow
-    @AppStorage("roost.captureScreenshots") private var captureScreenshots = true
-    let screenshotWatcher: ScreenshotWatcher
-
-    var body: some View {
-        Button("Open Catch Box") {
-            openWindow(id: "bucket")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-
-        Button("Open Library") {
-            openWindow(id: "library")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-
-        Divider()
-
-        Button("Save Clipboard") {
-            store.captureClipboard()
-        }
-        .keyboardShortcut("v", modifiers: [.command, .shift])
-
-        Toggle("Capture Screenshots", isOn: Binding(
-            get: { captureScreenshots },
-            set: { enabled in
-                captureScreenshots = enabled
-                if enabled {
-                    screenshotWatcher.start(store: store)
-                } else {
-                    screenshotWatcher.stop()
-                }
-            }
-        ))
-
-        Divider()
-
-        Button("Quit Roost") {
-            NSApp.terminate(nil)
-        }
-        .keyboardShortcut("q")
-    }
-}
-
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    let menuBarController = MenuBarDropController()
+    var openLibraryWindow: (() -> Void)?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The Roost palette is light paper tones; pin the light appearance so
         // system chrome (toolbar title, search field, menus) stays readable
@@ -145,5 +100,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !flag else { return true }
+        openLibraryWindow?()
+        NSApp.activate(ignoringOtherApps: true)
+        return true
+    }
+}
+
+private struct StatusItemBootstrap: View {
+    @EnvironmentObject private var store: BookmarkStore
+    @Environment(\.openWindow) private var openWindow
+    let appDelegate: AppDelegate
+    let screenshotWatcher: ScreenshotWatcher
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onAppear {
+                appDelegate.openLibraryWindow = {
+                    openWindow(id: "library")
+                }
+
+                appDelegate.menuBarController.configure(
+                    store: store,
+                    screenshotWatcher: screenshotWatcher,
+                    openBucket: {
+                        openWindow(id: "bucket")
+                        NSApp.activate(ignoringOtherApps: true)
+                    },
+                    openLibrary: {
+                        openWindow(id: "library")
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                )
+            }
     }
 }

@@ -6,8 +6,6 @@ struct SidebarView: View {
     @EnvironmentObject private var navigation: NavigationModel
     @State private var isAddingProject = false
     @State private var newProjectName = ""
-    @State private var projectBeingRenamed: Project?
-    @State private var renameText = ""
     @AppStorage("roost.sidebar.projectsExpanded") private var projectsExpanded = true
     @AppStorage("roost.sidebar.collectionsExpanded") private var collectionsExpanded = true
 
@@ -84,13 +82,13 @@ struct SidebarView: View {
                     if projectsExpanded {
                         ForEach(noteStore.projects) { project in
                             ProjectSidebarRow(
+                                projectID: project.id,
                                 title: project.name,
                                 count: noteStore.notes(inProject: project.id).count,
                                 isSelected: navigation.selection == .project(project.id),
                                 tint: Theme.projectColor(project.colorIndex),
-                                onRename: {
-                                    renameText = project.name
-                                    projectBeingRenamed = project
+                                onRename: { newName in
+                                    noteStore.renameProject(project.id, to: newName)
                                 },
                                 onDelete: {
                                     if navigation.selection == .project(project.id) {
@@ -139,21 +137,6 @@ struct SidebarView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Group your notes by what you're working on.")
-        }
-        .alert("Rename Project", isPresented: Binding(
-            get: { projectBeingRenamed != nil },
-            set: { if !$0 { projectBeingRenamed = nil } }
-        )) {
-            TextField("Project name", text: $renameText)
-            Button("Rename") {
-                if let project = projectBeingRenamed {
-                    noteStore.renameProject(project.id, to: renameText)
-                }
-                projectBeingRenamed = nil
-            }
-            Button("Cancel", role: .cancel) {
-                projectBeingRenamed = nil
-            }
         }
     }
 
@@ -365,14 +348,22 @@ private struct CollectionRow: View {
 }
 
 private struct ProjectSidebarRow: View {
+    @EnvironmentObject private var store: BookmarkStore
+    @EnvironmentObject private var noteStore: NoteStore
+    @EnvironmentObject private var navigation: NavigationModel
+    let projectID: UUID
     let title: String
     let count: Int
     let isSelected: Bool
     let tint: Color
-    let onRename: () -> Void
+    let onRename: (String) -> Void
     let onDelete: () -> Void
     let action: () -> Void
     @State private var isHovered = false
+    @State private var isTargeted = false
+    @State private var isRenaming = false
+    @State private var draftTitle = ""
+    @FocusState private var isNameFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -382,15 +373,25 @@ private struct ProjectSidebarRow: View {
                         .fill(tint)
                         .frame(width: 8, height: 8)
 
-                    Text(title)
-                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    if isRenaming {
+                        TextField("", text: $draftTitle)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .focused($isNameFocused)
+                            .onSubmit(commitRename)
+                            .onExitCommand(perform: cancelRename)
+                    } else {
+                        Text(title)
+                            .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
 
                     Spacer(minLength: 8)
 
-                    if count > 0 && !isHovered {
+                    if count > 0 && !isHovered && !isRenaming {
                         Text("\(count)")
                             .font(.system(size: 11, weight: .regular))
                             .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
@@ -407,10 +408,11 @@ private struct ProjectSidebarRow: View {
                 }
             }
             .buttonStyle(.plain)
+            .disabled(isRenaming)
 
-            if isHovered {
+            if isHovered && !isRenaming {
                 HStack(spacing: 6) {
-                    Button(action: onRename) {
+                    Button(action: beginRename) {
                         Image(systemName: "pencil")
                             .font(.system(size: 10, weight: .semibold))
                     }
@@ -431,8 +433,86 @@ private struct ProjectSidebarRow: View {
         }
         .background {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(isSelected ? Theme.selected : Color.clear)
+                .fill(isTargeted ? Theme.field : (isSelected ? Theme.selected : Color.clear))
         }
         .onHover { isHovered = $0 }
+        .onAppear {
+            if draftTitle.isEmpty {
+                draftTitle = title
+            }
+        }
+        .onChange(of: isNameFocused) { _, focused in
+            if isRenaming && !focused {
+                commitRename()
+            }
+        }
+        .onDrop(of: BookmarkDropHandler.acceptedTypes, isTargeted: $isTargeted) { providers in
+            fileDroppedContent(from: providers)
+        }
+    }
+
+    private func beginRename() {
+        draftTitle = title
+        isRenaming = true
+        DispatchQueue.main.async {
+            isNameFocused = true
+        }
+    }
+
+    private func commitRename() {
+        let trimmed = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed != title {
+            onRename(trimmed)
+        } else {
+            draftTitle = title
+        }
+        isRenaming = false
+    }
+
+    private func cancelRename() {
+        draftTitle = title
+        isRenaming = false
+    }
+
+    private func fileDroppedContent(from providers: [NSItemProvider]) -> Bool {
+        if moveExistingBookmarkIntoProject(from: providers) {
+            return true
+        }
+
+        return BookmarkDropHandler.handle(providers, store: store) { bookmark in
+            let note = noteStore.addLinkedBookmarkNote(for: bookmark, to: projectID)
+            navigation.selection = .project(projectID)
+            noteStore.selectedNoteID = note.id
+            store.selectedBookmarkID = nil
+        }
+    }
+
+    private func moveExistingBookmarkIntoProject(from providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
+            return false
+        }
+
+        provider.loadObject(ofClass: NSString.self) { item, _ in
+            guard let rawID = item as? String,
+                  let id = UUID(uuidString: rawID) else { return }
+
+            DispatchQueue.main.async {
+                if noteStore.notes.contains(where: { $0.id == id }) {
+                    noteStore.update(id) { $0.projectID = projectID }
+                    navigation.selection = .project(projectID)
+                    noteStore.selectedNoteID = id
+                    store.selectedBookmarkID = nil
+                    return
+                }
+
+                guard let bookmark = store.bookmarks.first(where: { $0.id == id }) else { return }
+                let note = noteStore.addLinkedBookmarkNote(for: bookmark, to: projectID)
+                navigation.selection = .project(projectID)
+                noteStore.selectedNoteID = note.id
+                store.selectedBookmarkID = nil
+            }
+        }
+
+        return true
     }
 }
