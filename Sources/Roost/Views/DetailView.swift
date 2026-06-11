@@ -12,13 +12,11 @@ struct DetailView: View {
             if let note = noteStore.selectedNote {
                 NoteEditorView(note: note)
                     .id(note.id)
-            } else {
-                NotePlaceholderView()
+            } else if let bookmark = store.selectedBookmark {
+                BookmarkDetail(bookmark: bookmark)
             }
         } else if let bookmark = store.selectedBookmark {
             BookmarkDetail(bookmark: bookmark)
-        } else {
-            DetailPlaceholder()
         }
     }
 }
@@ -31,33 +29,38 @@ private struct BookmarkDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Label(bookmark.category.rawValue, systemImage: bookmark.category.symbolName)
+                    Label(bookmark.displayCategory.rawValue, systemImage: bookmark.displayCategory.symbolName)
                         .font(.caption.weight(.bold))
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(Theme.moss, in: Capsule())
 
-                    Text(bookmark.title)
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text(bookmark.displayTitle)
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(3)
                         .textSelection(.enabled)
 
+                    Text(bookmark.secondaryLabel)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+
                     HStack(spacing: 10) {
-                        Button {
+                        DetailPinButton(isPinned: bookmark.isImportant) {
                             store.toggleImportant(bookmark)
-                        } label: {
-                            Label(bookmark.isImportant ? "Flagged" : "Flag", systemImage: bookmark.isImportant ? "flag.fill" : "flag")
                         }
-                        .buttonStyle(.bordered)
 
                         Button {
                             store.open(bookmark)
                         } label: {
                             Label("Open", systemImage: "arrow.up.forward.app")
+                                .padding(.horizontal, 12)
+                                .frame(height: 30)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.white)
+                        .background(Theme.rose, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
 
                         Spacer()
                     }
@@ -66,7 +69,7 @@ private struct BookmarkDetail: View {
                 sections
             }
             .padding(26)
-            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: 720, alignment: .topLeading)
             .frame(maxWidth: .infinity)
         }
         .background(PaintedBackdrop())
@@ -74,28 +77,16 @@ private struct BookmarkDetail: View {
 
     @ViewBuilder
     private var sections: some View {
-            DetailSection(title: "Location") {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: symbolName)
-                        .foregroundStyle(Theme.rose)
-                        .frame(width: 18)
-                    Text(bookmark.location)
-                        .font(.callout.monospaced())
-                        .textSelection(.enabled)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            }
-
             if bookmark.kind == .file, let image = NSImage(contentsOfFile: bookmark.location) {
                 DetailSection(title: "Preview") {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
                         .frame(maxHeight: 360)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Theme.ink.opacity(0.10), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .stroke(Theme.cardStroke, lineWidth: 1)
                         }
                 }
             }
@@ -104,46 +95,13 @@ private struct BookmarkDetail: View {
                 DetailSection(title: "Viewer") {
                     WebPreview(url: previewURL)
                         .frame(height: 320)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Theme.ink.opacity(0.10), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .stroke(Theme.cardStroke, lineWidth: 1)
                         }
                 }
             }
-
-            DetailSection(title: "Smart Bucket") {
-                Picker("Smart Pile", selection: Binding(
-                    get: { bookmark.category },
-                    set: { store.move(bookmark, to: $0) }
-                )) {
-                    ForEach(BookmarkCategory.pileCases) { category in
-                        Label(category.rawValue, systemImage: category.symbolName)
-                            .tag(category)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-            }
-
-            DetailSection(title: "Notes") {
-                TextEditor(text: Binding(
-                    get: { bookmark.summary },
-                    set: { store.updateSummary(bookmark.id, summary: $0) }
-                ))
-                .font(.callout)
-                .foregroundStyle(Theme.textPrimary)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 64)
-            }
-    }
-
-    private var symbolName: String {
-        switch bookmark.kind {
-        case .web: "globe"
-        case .file: "doc"
-        case .text: "text.quote"
-        }
     }
 }
 
@@ -173,6 +131,28 @@ private struct WebPreview: NSViewRepresentable {
     }
 }
 
+private struct DetailPinButton: View {
+    let isPinned: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(isPinned ? "Pinned" : "Pin", systemImage: isPinned ? "pin.fill" : "pin")
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isPinned ? Theme.gold : Theme.textSecondary)
+        .background(isPinned ? Theme.gold.opacity(0.13) : Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(isPinned ? Theme.gold.opacity(0.45) : Theme.cardStroke, lineWidth: 1)
+        }
+        .help(isPinned ? "Unpin" : "Pin")
+    }
+}
+
 private struct DetailSection<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
@@ -180,56 +160,12 @@ private struct DetailSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title)
-                .font(.headline)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             content
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperPanel(cornerRadius: 10, tint: Theme.rose)
-    }
-}
-
-private struct DetailPlaceholder: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(Theme.blush.opacity(0.82))
-                    .frame(width: 148, height: 112)
-                    .rotationEffect(.degrees(-5))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .stroke(Theme.rose.opacity(0.30), lineWidth: 1)
-                    }
-
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Theme.cream.opacity(0.96))
-                    .frame(width: 114, height: 84)
-                    .overlay {
-                        StarScatter()
-                            .opacity(0.55)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Theme.gold.opacity(0.50), lineWidth: 1)
-                    }
-                    .offset(x: 12, y: 24)
-            }
-
-            Text("Pick something from the pile")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(Theme.textPrimary)
-                .multilineTextAlignment(.center)
-            Text("Links, files, and notes you save in Roost appear here.")
-                .font(.callout)
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(30)
-        .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(PaintedBackdrop())
+        .paperPanel(cornerRadius: 4, tint: Theme.rose)
     }
 }

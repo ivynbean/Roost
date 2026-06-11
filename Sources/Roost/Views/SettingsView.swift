@@ -15,13 +15,9 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                LabeledContent("Sorter") {
-                    Text("Local scoring now, model-ready later")
+                LabeledContent("Collections") {
+                    Text("Files and links keep the bucket you choose")
                         .foregroundStyle(.secondary)
-                }
-
-                Button("Tidy Up Everything") {
-                    store.autoSortAll()
                 }
             }
 

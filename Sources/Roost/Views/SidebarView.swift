@@ -8,22 +8,22 @@ struct SidebarView: View {
     @State private var newProjectName = ""
     @State private var projectBeingRenamed: Project?
     @State private var renameText = ""
+    @AppStorage("roost.sidebar.projectsExpanded") private var projectsExpanded = true
+    @AppStorage("roost.sidebar.collectionsExpanded") private var collectionsExpanded = true
 
     var body: some View {
         VStack(spacing: 0) {
             SidebarLogo()
-                .padding(.top, 24)
-                .padding(.bottom, 18)
-                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+                .padding(.horizontal, 14)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
-                    sectionHeader("Overview")
-
                     SidebarRow(
                         title: "Today",
-                        symbolName: "sun.max",
-                        count: noteStore.noteCount(for: .today),
+                        symbolName: "calendar",
+                        count: todayCount,
                         isSelected: navigation.selection == .today
                     ) {
                         navigation.selection = .today
@@ -31,11 +31,20 @@ struct SidebarView: View {
 
                     SidebarRow(
                         title: "On the Agenda",
-                        symbolName: "star",
+                        symbolName: "pin",
                         count: noteStore.noteCount(for: .agenda),
                         isSelected: navigation.selection == .agenda
                     ) {
                         navigation.selection = .agenda
+                    }
+
+                    SidebarRow(
+                        title: "Tasks",
+                        symbolName: "checkmark.circle",
+                        count: noteStore.noteCount(for: .tasks),
+                        isSelected: navigation.selection == .tasks
+                    ) {
+                        navigation.selection = .tasks
                     }
 
                     SidebarRow(
@@ -47,64 +56,74 @@ struct SidebarView: View {
                         navigation.selection = .allNotes
                     }
 
-                    HStack {
-                        sectionHeader("Projects")
-                        Spacer()
-                        Button {
-                            newProjectName = ""
-                            isAddingProject = true
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.ink.opacity(0.6))
-                        }
-                        .buttonStyle(.plain)
-                        .help("New Project")
-                        .padding(.trailing, 14)
-                    }
-                    .padding(.top, 14)
+                    Divider()
+                        .overlay(Theme.divider)
+                        .padding(.vertical, 7)
+                        .padding(.trailing, 8)
 
-                    ForEach(noteStore.projects) { project in
-                        SidebarRow(
-                            title: project.name,
-                            symbolName: project.symbolName,
-                            count: noteStore.notes(inProject: project.id).count,
-                            isSelected: navigation.selection == .project(project.id),
-                            tint: Theme.projectColor(project.colorIndex)
-                        ) {
-                            navigation.selection = .project(project.id)
-                        }
-                        .contextMenu {
-                            Button("Rename…") {
-                                renameText = project.name
-                                projectBeingRenamed = project
-                            }
-                            Button("Delete", role: .destructive) {
-                                if navigation.selection == .project(project.id) {
-                                    navigation.selection = .allNotes
+                    CollectionRow(
+                        category: .screenshots,
+                        count: count(for: .screenshots),
+                        isSelected: navigation.selection == .collection(.screenshots),
+                        store: store
+                    ) {
+                        navigation.selection = .collection(.screenshots)
+                        store.selectedCategory = .screenshots
+                    }
+
+                    Divider()
+                        .overlay(Theme.divider)
+                        .padding(.vertical, 7)
+                        .padding(.trailing, 8)
+
+                    CollapsibleHeader(title: "Projects", isExpanded: $projectsExpanded) {
+                        newProjectName = ""
+                        isAddingProject = true
+                    }
+
+                    if projectsExpanded {
+                        ForEach(noteStore.projects) { project in
+                            ProjectSidebarRow(
+                                title: project.name,
+                                count: noteStore.notes(inProject: project.id).count,
+                                isSelected: navigation.selection == .project(project.id),
+                                tint: Theme.projectColor(project.colorIndex),
+                                onRename: {
+                                    renameText = project.name
+                                    projectBeingRenamed = project
+                                },
+                                onDelete: {
+                                    if navigation.selection == .project(project.id) {
+                                        navigation.selection = .allNotes
+                                    }
+                                    noteStore.deleteProject(project.id)
                                 }
-                                noteStore.deleteProject(project.id)
+                            ) {
+                                navigation.selection = .project(project.id)
                             }
                         }
                     }
 
-                    sectionHeader("Collections")
-                        .padding(.top, 14)
+                    if !activeCollections.isEmpty {
+                        CollapsibleHeader(title: "Saved", isExpanded: $collectionsExpanded)
+                            .padding(.top, 8)
+                    }
 
-                    ForEach(BookmarkCategory.pileCases) { category in
-                        CollectionRow(
-                            category: category,
-                            count: count(for: category),
-                            isSelected: navigation.selection == .collection(category),
-                            store: store
-                        ) {
-                            navigation.selection = .collection(category)
-                            store.selectedCategory = category
+                    if collectionsExpanded {
+                        ForEach(activeCollections) { category in
+                            CollectionRow(
+                                category: category,
+                                count: count(for: category),
+                                isSelected: navigation.selection == .collection(category),
+                                store: store
+                            ) {
+                                navigation.selection = .collection(category)
+                                store.selectedCategory = category
+                            }
                         }
                     }
                 }
-                .padding(.leading, 28)
-                .padding(.trailing, 14)
+                .padding(.horizontal, 8)
                 .padding(.bottom, 16)
             }
             .scrollIndicators(.visible)
@@ -140,40 +159,90 @@ struct SidebarView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.caption2.weight(.bold))
-            .kerning(0.8)
+            .font(.system(size: 11, weight: .medium))
             .foregroundStyle(Theme.textTertiary)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 6)
             .padding(.bottom, 4)
     }
 
     private func count(for category: BookmarkCategory) -> Int {
-        if category == .inbox {
-            return store.bookmarks.count
+        store.bookmarks(in: category).count
+    }
+
+    private var todayCount: Int {
+        let calendar = Calendar.current
+        let savedToday = store.bookmarks.filter { calendar.isDateInToday($0.createdAt) }.count
+        return noteStore.noteCount(for: .today) + savedToday
+    }
+
+    private var activeCollections: [BookmarkCategory] {
+        BookmarkCategory.pileCases
+            .filter { $0 != .screenshots }
+            .filter { count(for: $0) > 0 }
+    }
+}
+
+private struct CollapsibleHeader: View {
+    let title: String
+    @Binding var isExpanded: Bool
+    var addAction: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button {
+                isExpanded.toggle()
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(width: 12, height: 18)
+
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                    .textCase(.uppercase)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            if let addAction {
+                Button(action: addAction) {
+                    Image(systemName: "plus")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .help("New Project")
+                .padding(.trailing, 8)
+            }
         }
-        return store.bookmarks.filter { $0.category == category }.count
+        .padding(.horizontal, 6)
+        .padding(.bottom, 4)
     }
 }
 
 private struct SidebarLogo: View {
     var body: some View {
-        VStack(spacing: 6) {
+        HStack(spacing: 10) {
             if let logoImage = RoostImage.nsImage() {
                 Image(nsImage: logoImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 72, height: 72)
-                    .shadow(color: Theme.wood.opacity(0.10), radius: 7, y: 3)
+                    .frame(width: 28, height: 28)
             } else {
                 Image(systemName: "shippingbox.and.arrow.backward")
-                    .font(.system(size: 38, weight: .regular))
+                    .font(.system(size: 18, weight: .regular))
                     .foregroundStyle(Theme.rose)
-                    .frame(width: 72, height: 72)
+                    .frame(width: 28, height: 28)
             }
 
             Text("Roost")
-                .font(Theme.logoFont(size: 28))
-                .foregroundStyle(Theme.pink)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+
+            Spacer()
         }
         .frame(maxWidth: .infinity)
     }
@@ -191,13 +260,13 @@ private struct SidebarRow: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: symbolName)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.white : tint)
-                    .frame(width: 22)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                    .frame(width: 16)
 
                 Text(title)
-                    .font(.callout.weight(isSelected ? .semibold : .medium))
-                    .foregroundStyle(isSelected ? Color.white : Theme.textPrimary)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -205,21 +274,18 @@ private struct SidebarRow: View {
 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(isSelected ? tint : Color.white)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
                         .monospacedDigit()
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(isSelected ? Color.white : Theme.ink.opacity(0.45), in: Capsule())
                 }
             }
-            .padding(.horizontal, 14)
-            .frame(height: 36)
+            .padding(.horizontal, 7)
+            .frame(height: 28)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? tint : Color.clear)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(isSelected ? Theme.selected : Color.clear)
             }
         }
         .buttonStyle(.plain)
@@ -238,13 +304,13 @@ private struct CollectionRow: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: category.symbolName)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.white : Theme.moss)
-                    .frame(width: 22)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                    .frame(width: 16)
 
                 Text(category.rawValue)
-                    .font(.callout.weight(isSelected ? .semibold : .medium))
-                    .foregroundStyle(isSelected ? Color.white : Theme.textPrimary)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -252,20 +318,17 @@ private struct CollectionRow: View {
 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(isSelected ? Theme.pink : Color.white)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
                         .monospacedDigit()
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(isSelected ? Color.white : Theme.ink.opacity(0.45), in: Capsule())
                 }
             }
-            .padding(.horizontal, 14)
-            .frame(height: 36)
+            .padding(.horizontal, 7)
+            .frame(height: 28)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(rowFill)
             }
         }
@@ -277,10 +340,10 @@ private struct CollectionRow: View {
 
     private var rowFill: Color {
         if isTargeted {
-            return Theme.gold.opacity(0.35)
+            return Theme.field
         }
 
-        return isSelected ? Theme.pink : Color.clear
+        return isSelected ? Theme.selected : Color.clear
     }
 
     private func moveDroppedBookmark(from providers: [NSItemProvider]) -> Bool {
@@ -298,5 +361,78 @@ private struct CollectionRow: View {
         }
 
         return true
+    }
+}
+
+private struct ProjectSidebarRow: View {
+    let title: String
+    let count: Int
+    let isSelected: Bool
+    let tint: Color
+    let onRename: () -> Void
+    let onDelete: () -> Void
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: action) {
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: 8, height: 8)
+
+                    Text(title)
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Spacer(minLength: 8)
+
+                    if count > 0 && !isHovered {
+                        Text("\(count)")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                            .monospacedDigit()
+                    }
+                }
+                .padding(.horizontal, 7)
+                .frame(height: 28)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .background {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(isSelected ? Theme.selected : Color.clear)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isHovered {
+                HStack(spacing: 6) {
+                    Button(action: onRename) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.textTertiary)
+                    .help("Rename Project")
+
+                    Button(role: .destructive, action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.textTertiary)
+                    .help("Delete Project")
+                }
+                .padding(.trailing, 8)
+            }
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(isSelected ? Theme.selected : Color.clear)
+        }
+        .onHover { isHovered = $0 }
     }
 }

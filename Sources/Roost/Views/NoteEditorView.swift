@@ -18,92 +18,228 @@ struct NoteEditorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
                 headerControls
 
-                TextField("Title", text: $title, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                    .onChange(of: title) { _, newValue in
-                        noteStore.update(note.id) { $0.title = newValue }
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("Note title", text: $title, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .onChange(of: title) { _, newValue in
+                            noteStore.update(note.id) { $0.title = newValue }
+                        }
+
+                    metadataRow
+
+                    ZStack(alignment: .topLeading) {
+                        if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text("Write the details here…")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.textTertiary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 8)
+                                .allowsHitTesting(false)
+                        }
+
+                        TextEditor(text: $content)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.textPrimary)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 260)
+                            .onChange(of: content) { _, newValue in
+                                noteStore.update(note.id) { $0.content = newValue }
+                            }
                     }
-
-                metadataRow
-
-                TextEditor(text: $content)
-                    .font(.body)
-                    .foregroundStyle(Theme.textPrimary)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: 220)
                     .padding(10)
-                    .paperPanel(cornerRadius: 10, tint: Theme.rose)
-                    .onChange(of: content) { _, newValue in
-                        noteStore.update(note.id) { $0.content = newValue }
+                    .background(Theme.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(Theme.cardStroke, lineWidth: 1)
                     }
+                }
+                .padding(16)
+                .paperPanel(cornerRadius: 4, tint: Theme.rose, fillOpacity: 0.64)
 
                 linkedBookmarksSection
             }
             .padding(26)
-            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: 720, alignment: .topLeading)
             .frame(maxWidth: .infinity)
         }
         .background(PaintedBackdrop())
     }
 
     private var headerControls: some View {
-        HStack(spacing: 10) {
-            Button {
-                noteStore.toggleDone(note.id)
-            } label: {
-                Label(note.isDone ? "Done" : "Mark Done", systemImage: note.isDone ? "checkmark.circle.fill" : "circle")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                leadingHeaderActions
+                Spacer(minLength: 10)
+                deleteButton
             }
-            .buttonStyle(.bordered)
-            .tint(note.isDone ? Theme.moss : nil)
 
-            Button {
-                noteStore.toggleAgenda(note.id)
-            } label: {
-                Label(note.isOnAgenda ? "On the Agenda" : "Put on Agenda", systemImage: note.isOnAgenda ? "star.fill" : "star")
+            VStack(alignment: .leading, spacing: 10) {
+                leadingHeaderActions
+                HStack {
+                    Spacer()
+                    deleteButton
+                }
             }
-            .buttonStyle(.bordered)
-            .tint(note.isOnAgenda ? Theme.gold : nil)
-
-            Spacer()
-
-            Button(role: .destructive) {
-                noteStore.deleteNote(note.id)
-            } label: {
-                Label("Delete", systemImage: "trash")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.bordered)
-            .help("Delete note")
         }
     }
 
     private var metadataRow: some View {
-        HStack(spacing: 14) {
-            Picker("Project", selection: Binding(
-                get: { note.projectID },
-                set: { newValue in noteStore.update(note.id) { $0.projectID = newValue } }
-            )) {
-                Text("No Project").tag(UUID?.none)
-                ForEach(noteStore.projects) { project in
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                projectMenu
+                scheduleControls
+                Spacer(minLength: 12)
+                editedLabel
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    projectMenu
+                    Spacer(minLength: 8)
+                    editedLabel
+                }
+                scheduleControls
+            }
+        }
+    }
+
+    private var leadingHeaderActions: some View {
+        HStack(spacing: 10) {
+            noteTypeButton
+            pinButton
+            if note.isTask {
+                doneButton
+            }
+        }
+    }
+
+    private var noteTypeButton: some View {
+        Button {
+            noteStore.update(note.id) {
+                $0.isTask.toggle()
+                if !$0.isTask { $0.isDone = false }
+            }
+        } label: {
+            Label(note.isTask ? "Task" : "Note", systemImage: note.isTask ? "checklist" : "doc.text")
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(note.isTask ? Theme.rose : Theme.textSecondary)
+        .background(note.isTask ? Theme.rose.opacity(0.12) : Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(note.isTask ? Theme.rose.opacity(0.35) : Theme.cardStroke, lineWidth: 1)
+        }
+    }
+
+    private var pinButton: some View {
+        Button {
+            noteStore.toggleAgenda(note.id)
+        } label: {
+            Label(note.isOnAgenda ? "Pinned" : "Pin", systemImage: note.isOnAgenda ? "pin.fill" : "pin")
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(note.isOnAgenda ? Theme.gold : Theme.textSecondary)
+        .background(note.isOnAgenda ? Theme.gold.opacity(0.13) : Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(note.isOnAgenda ? Theme.gold.opacity(0.42) : Theme.cardStroke, lineWidth: 1)
+        }
+    }
+
+    private var doneButton: some View {
+        Button {
+            noteStore.toggleDone(note.id)
+        } label: {
+            Label(note.isDone ? "Done" : "Mark done", systemImage: "checkmark")
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(note.isDone ? Theme.moss : Theme.textSecondary)
+        .background(note.isDone ? Theme.moss.opacity(0.12) : Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(note.isDone ? Theme.moss.opacity(0.35) : Theme.cardStroke, lineWidth: 1)
+        }
+    }
+
+    private var deleteButton: some View {
+        Button(role: .destructive) {
+            noteStore.deleteNote(note.id)
+        } label: {
+            Label("Delete", systemImage: "trash")
+                .labelStyle(.iconOnly)
+                .frame(width: 30, height: 30)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.rose)
+        .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .help("Delete note")
+    }
+
+    private var projectMenu: some View {
+        Menu {
+            Button("No Project") {
+                noteStore.update(note.id) { $0.projectID = nil }
+            }
+            ForEach(noteStore.projects) { project in
+                Button {
+                    noteStore.update(note.id) { $0.projectID = project.id }
+                } label: {
                     Label(project.name, systemImage: project.symbolName)
-                        .tag(Optional(project.id))
                 }
             }
-            .pickerStyle(.menu)
-            .frame(maxWidth: 200)
-
-            Toggle("Scheduled", isOn: Binding(
-                get: { note.date != nil },
-                set: { isOn in
-                    noteStore.update(note.id) { $0.date = isOn ? Calendar.current.startOfDay(for: Date()) : nil }
+        } label: {
+            HStack(spacing: 8) {
+                if let project = noteStore.project(for: note.projectID) {
+                    Circle()
+                        .fill(Theme.projectColor(project.colorIndex))
+                        .frame(width: 8, height: 8)
+                    Text(project.name)
+                } else {
+                    Image(systemName: "circle.dashed")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("No Project")
                 }
-            ))
-            .toggleStyle(.checkbox)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        }
+        .menuStyle(.borderlessButton)
+    }
+
+    private var scheduleControls: some View {
+        HStack(spacing: 10) {
+            Button {
+                noteStore.update(note.id) {
+                    $0.date = $0.date == nil ? Calendar.current.startOfDay(for: Date()) : nil
+                }
+            } label: {
+                Label(note.date == nil ? "Schedule" : "Scheduled", systemImage: note.date == nil ? "calendar.badge.plus" : "calendar")
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(note.date == nil ? Theme.textSecondary : Theme.lavender)
+            .background(note.date == nil ? Theme.field : Theme.lavender.opacity(0.10), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(note.date == nil ? Theme.cardStroke : Theme.lavender.opacity(0.32), lineWidth: 1)
+            }
 
             if note.date != nil {
                 DatePicker(
@@ -116,20 +252,22 @@ struct NoteEditorView: View {
                 )
                 .labelsHidden()
                 .datePickerStyle(.compact)
+                .fixedSize()
             }
-
-            Spacer()
-
-            Text("Edited \(relativeLabel(note.updatedAt))")
-                .font(.caption)
-                .foregroundStyle(Theme.textTertiary)
         }
+    }
+
+    private var editedLabel: some View {
+        Text("Edited \(relativeLabel(note.updatedAt))")
+            .font(.caption)
+            .foregroundStyle(Theme.textTertiary)
+            .lineLimit(1)
     }
 
     private var linkedBookmarksSection: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("Linked Items")
-                .font(.headline)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
             ForEach(linkedBookmarks) { bookmark in
@@ -139,11 +277,11 @@ struct NoteEditorView: View {
                         .frame(width: 18)
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(bookmark.title)
+                        Text(bookmark.displayTitle)
                             .font(.callout.weight(.medium))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
-                        Text(bookmark.location)
+                        Text(bookmark.displayLocation)
                             .font(.caption)
                             .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
@@ -180,9 +318,9 @@ struct NoteEditorView: View {
             }
             .padding(12)
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(
-                        isLinkDropTargeted ? Theme.gold : Theme.ink.opacity(0.35),
+                        isLinkDropTargeted ? Theme.gold : Theme.cardStroke,
                         style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
                     )
             }
@@ -194,7 +332,7 @@ struct NoteEditorView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperPanel(cornerRadius: 10, tint: Theme.lavender)
+        .paperPanel(cornerRadius: 4, tint: Theme.lavender)
     }
 
     private var linkedBookmarks: [Bookmark] {
@@ -218,10 +356,10 @@ struct NotePlaceholderView: View {
                 .foregroundStyle(Theme.rose)
 
             Text("Pick a note or start a new one")
-                .font(.title2.weight(.bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.center)
-            Text("Notes live on your timeline, sorted by day and project — perfect for juggling more than one thing at once.")
+            Text("Notes live on your timeline, sorted by day and project.")
                 .font(.callout)
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)

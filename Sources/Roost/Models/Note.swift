@@ -28,6 +28,7 @@ struct Note: Identifiable, Codable, Equatable {
     var content: String
     var projectID: UUID?
     var date: Date?
+    var isTask: Bool
     var isOnAgenda: Bool
     var isDone: Bool
     var linkedBookmarkIDs: [UUID]
@@ -40,6 +41,7 @@ struct Note: Identifiable, Codable, Equatable {
         content: String = "",
         projectID: UUID? = nil,
         date: Date? = nil,
+        isTask: Bool = false,
         isOnAgenda: Bool = false,
         isDone: Bool = false,
         linkedBookmarkIDs: [UUID] = [],
@@ -51,6 +53,7 @@ struct Note: Identifiable, Codable, Equatable {
         self.content = content
         self.projectID = projectID
         self.date = date
+        self.isTask = isTask
         self.isOnAgenda = isOnAgenda
         self.isDone = isDone
         self.linkedBookmarkIDs = linkedBookmarkIDs
@@ -64,6 +67,7 @@ struct Note: Identifiable, Codable, Equatable {
         case content
         case projectID
         case date
+        case isTask
         case isOnAgenda
         case isDone
         case linkedBookmarkIDs
@@ -78,6 +82,7 @@ struct Note: Identifiable, Codable, Equatable {
         content = try container.decodeIfPresent(String.self, forKey: .content) ?? ""
         projectID = try container.decodeIfPresent(UUID.self, forKey: .projectID)
         date = try container.decodeIfPresent(Date.self, forKey: .date)
+        isTask = try container.decodeIfPresent(Bool.self, forKey: .isTask) ?? false
         isOnAgenda = try container.decodeIfPresent(Bool.self, forKey: .isOnAgenda) ?? false
         isDone = try container.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
         linkedBookmarkIDs = try container.decodeIfPresent([UUID].self, forKey: .linkedBookmarkIDs) ?? []

@@ -41,6 +41,10 @@ final class NoteStore: ObservableObject {
         applySearch(notes.filter(\.isOnAgenda))
     }
 
+    var taskNotes: [Note] {
+        applySearch(notes.filter(\.isTask))
+    }
+
     var todayNotes: [Note] {
         let calendar = Calendar.current
         return applySearch(notes.filter { calendar.isDateInToday($0.timelineDate) })
@@ -58,6 +62,7 @@ final class NoteStore: ObservableObject {
         switch selection {
         case .today: todayNotes.count
         case .agenda: agendaNotes.count
+        case .tasks: taskNotes.count
         case .allNotes: allNotes.count
         case .project(let id): notes(inProject: id).count
         case .collection: 0
@@ -68,6 +73,7 @@ final class NoteStore: ObservableObject {
         switch selection {
         case .today: todayNotes
         case .agenda: agendaNotes
+        case .tasks: taskNotes
         case .allNotes: allNotes
         case .project(let id): notes(inProject: id)
         case .collection: []
@@ -85,8 +91,8 @@ final class NoteStore: ObservableObject {
     // MARK: - Note CRUD
 
     @discardableResult
-    func addNote(projectID: UUID? = nil, date: Date? = nil) -> Note {
-        let note = Note(projectID: projectID, date: date)
+    func addNote(projectID: UUID? = nil, date: Date? = nil, isTask: Bool = false) -> Note {
+        let note = Note(projectID: projectID, date: date, isTask: isTask)
         notes.insert(note, at: 0)
         selectedNoteID = note.id
         logger.info("Added note id=\(note.id.uuidString, privacy: .public)")
@@ -115,7 +121,10 @@ final class NoteStore: ObservableObject {
     }
 
     func toggleDone(_ id: Note.ID) {
-        update(id) { $0.isDone.toggle() }
+        update(id) { note in
+            guard note.isTask else { return }
+            note.isDone.toggle()
+        }
     }
 
     func attach(bookmarkID: UUID, to noteID: Note.ID) {
