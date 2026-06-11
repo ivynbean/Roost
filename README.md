@@ -69,6 +69,27 @@ Set `APP_SIGN_IDENTITY` to your Apple distribution signing identity when you are
 ready to sign for distribution. See `docs/AppStoreChecklist.md` for the remaining
 App Store Connect, signing, provisioning, and artwork-license steps.
 
+## GitHub Downloads
+
+For tester-friendly GitHub downloads, package a zipped app bundle:
+
+```bash
+./script/package_github_release.sh
+```
+
+That produces:
+
+- `dist/Roost.app.zip`
+- `dist/Roost.app.zip.sha256`
+
+The repo also includes a GitHub Actions workflow at
+`.github/workflows/release.yml`. Publishing a GitHub Release will build the app
+on `macos-14` and attach the zip plus checksum automatically.
+
+Unsigned builds are fine for internal testers, but other people will see
+Gatekeeper warnings until the app is signed and notarized with your Apple
+Developer credentials.
+
 ## Next model-backed step
 
 `Sources/Roost/Services/BookmarkSorter.swift` is intentionally isolated so

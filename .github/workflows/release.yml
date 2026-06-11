@@ -1,0 +1,40 @@
+name: Release Roost
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build GitHub release artifacts
+        run: ./script/package_github_release.sh
+
+      - name: Upload release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roost-release
+          path: |
+            dist/Roost.app.zip
+            dist/Roost.app.zip.sha256
+
+      - name: Attach app zip to GitHub release
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            dist/Roost.app.zip \
+            dist/Roost.app.zip.sha256 \
+            --clobber
