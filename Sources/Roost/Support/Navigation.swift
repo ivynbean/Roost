@@ -3,6 +3,7 @@ import Foundation
 enum SidebarSelection: Hashable {
     case today
     case agenda
+    case tasks
     case allNotes
     case project(UUID)
     case collection(BookmarkCategory)

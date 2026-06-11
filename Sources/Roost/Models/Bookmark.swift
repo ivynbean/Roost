@@ -28,7 +28,7 @@ struct Bookmark: Identifiable, Codable, Equatable {
         title: String,
         location: String,
         kind: BookmarkKind,
-        category: BookmarkCategory = .inbox,
+        category: BookmarkCategory = .readLater,
         isImportant: Bool = false,
         summary: String = "",
         createdAt: Date = Date(),
@@ -38,7 +38,7 @@ struct Bookmark: Identifiable, Codable, Equatable {
         self.title = title
         self.location = location
         self.kind = kind
-        self.category = category == .important ? .inbox : category
+        self.category = category.normalized
         self.isImportant = isImportant || category == .important
         self.summary = summary
         self.createdAt = createdAt
@@ -52,11 +52,129 @@ struct Bookmark: Identifiable, Codable, Equatable {
         location = try container.decode(String.self, forKey: .location)
         kind = try container.decode(BookmarkKind.self, forKey: .kind)
         let decodedCategory = try container.decode(BookmarkCategory.self, forKey: .category)
-        category = decodedCategory == .important ? .inbox : decodedCategory
+        category = decodedCategory.normalized
         isImportant = (try container.decodeIfPresent(Bool.self, forKey: .isImportant) ?? false) || decodedCategory == .important
         summary = try container.decode(String.self, forKey: .summary)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
+    }
+
+    var displayTitle: String {
+        if kind == .file {
+            return Self.friendlyFileTitle(for: location, fallback: title)
+        }
+
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? location : trimmed
+    }
+
+    var displayLocation: String {
+        guard kind == .file else { return location }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if location.hasPrefix(home) {
+            return "~" + location.dropFirst(home.count)
+        }
+        return location
+    }
+
+    var displayCategory: BookmarkCategory {
+        category.normalized
+    }
+
+    var secondaryLabel: String {
+        switch kind {
+        case .web:
+            if let url = URL(string: location),
+               let host = url.host(percentEncoded: false) {
+                return host.replacingOccurrences(of: "www.", with: "")
+            }
+            return "Saved link"
+        case .file:
+            if isScreenshot {
+                return "Screenshot capture"
+            }
+
+            let path = (location as NSString).expandingTildeInPath
+            let folder = URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
+            return folder.isEmpty ? "Local file" : "From \(folder)"
+        case .text:
+            return summary.isEmpty ? "Quick note" : summary.firstLine(maxLength: 72)
+        }
+    }
+
+    var isScreenshot: Bool {
+        guard kind == .file else { return false }
+        return Self.looksLikeScreenshot(location) || Self.looksLikeScreenshot(title)
+    }
+
+    static func friendlyFileTitle(for path: String, fallback: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        let stem = url.deletingPathExtension().lastPathComponent
+        let source = stem.isEmpty ? fallback : stem
+
+        if let screenshotTitle = friendlyScreenshotTitle(from: source) {
+            return screenshotTitle
+        }
+
+        let decoded = source.removingPercentEncoding ?? source
+        let spaced = decoded
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return spaced.isEmpty ? fallback : spaced
+    }
+
+    private static func friendlyScreenshotTitle(from rawTitle: String) -> String? {
+        let pattern = #"^Screenshot (\d{4})-(\d{2})-(\d{2}) at (\d{1,2})[.:](\d{2})(?:[.:](\d{2}))?\s*([AP]M)?$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return nil
+        }
+        let range = NSRange(rawTitle.startIndex..<rawTitle.endIndex, in: rawTitle)
+        guard let match = regex.firstMatch(in: rawTitle, range: range),
+              match.numberOfRanges >= 6,
+              let year = component(at: 1, in: rawTitle, match: match),
+              let month = component(at: 2, in: rawTitle, match: match),
+              let day = component(at: 3, in: rawTitle, match: match),
+              let hour = component(at: 4, in: rawTitle, match: match),
+              let minute = component(at: 5, in: rawTitle, match: match) else {
+            return nil
+        }
+
+        let marker = component(at: 7, in: rawTitle, match: match) ?? ""
+        let input = "\(year)-\(month)-\(day) \(hour):\(minute) \(marker)".trimmingCharacters(in: .whitespaces)
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = marker.isEmpty ? "yyyy-MM-dd H:mm" : "yyyy-MM-dd h:mm a"
+
+        guard let date = parser.date(from: input) else {
+            return "Screenshot - \(month)/\(day) \(hour):\(minute)"
+        }
+
+        let output = DateFormatter()
+        output.locale = Locale.current
+        output.setLocalizedDateFormatFromTemplate("MMM d, h:mm a")
+        return "Screenshot - \(output.string(from: date))"
+    }
+
+    private static func looksLikeScreenshot(_ rawValue: String) -> Bool {
+        let source: String
+        if rawValue.hasPrefix("/") || rawValue.hasPrefix("~") {
+            let path = (rawValue as NSString).expandingTildeInPath
+            source = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        } else {
+            source = rawValue
+        }
+
+        return friendlyScreenshotTitle(from: source) != nil
+    }
+
+    private static func component(at index: Int, in string: String, match: NSTextCheckingResult) -> String? {
+        guard index < match.numberOfRanges,
+              let range = Range(match.range(at: index), in: string) else {
+            return nil
+        }
+        return String(string[range])
     }
 }
 
@@ -93,7 +211,14 @@ enum BookmarkCategory: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static var pileCases: [BookmarkCategory] {
-        allCases.filter { $0 != .important }
+        allCases.filter { $0 != .important && $0 != .inbox }
+    }
+
+    var normalized: BookmarkCategory {
+        switch self {
+        case .inbox, .important: .readLater
+        default: self
+        }
     }
 
     var symbolName: String {

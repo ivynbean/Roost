@@ -5,7 +5,7 @@ struct BookmarkListView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 6) {
+            LazyVStack(spacing: 0) {
                 ForEach(store.visibleBookmarks) { bookmark in
                     BookmarkRow(
                         bookmark: bookmark,
@@ -26,10 +26,15 @@ struct BookmarkListView: View {
                                 }
                             }
                         }
+
+                        Button("Delete", role: .destructive) {
+                            store.delete(bookmark)
+                        }
                     }
                 }
             }
-            .padding(12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .background(PaintedBackdrop())
         .navigationTitle(store.selectedCategory.rawValue)
@@ -43,71 +48,108 @@ struct BookmarkListView: View {
 
 private struct BookmarkRow: View {
     @EnvironmentObject private var store: BookmarkStore
+    @EnvironmentObject private var noteStore: NoteStore
     let bookmark: Bookmark
     let isSelected: Bool
+    @State private var isHovered = false
 
     var body: some View {
         Button {
+            noteStore.selectedNoteID = nil
             store.selectedBookmarkID = bookmark.id
         } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(iconTint.opacity(isSelected ? 0.26 : 0.18))
-                    Image(systemName: iconName)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(iconTint)
-                }
-                .frame(width: 34, height: 34)
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Image(systemName: iconName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(iconTint)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(bookmark.title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.white : Theme.textPrimary)
+                        Text(bookmark.displayTitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+
+                        if bookmark.isImportant {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Theme.gold)
+                        }
+                    }
+
+                    Text(bookmark.secondaryLabel)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
 
-                    Text(bookmark.location)
-                        .font(.caption)
-                        .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Theme.textSecondary)
-                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(shortTime(bookmark.createdAt))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+
+                        if bookmark.displayCategory != .readLater {
+                            Text("•")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(accentColor)
+
+                            Text(bookmark.displayCategory.rawValue)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
                 }
 
                 Spacer(minLength: 10)
 
-                Button {
-                    store.toggleImportant(bookmark)
-                } label: {
-                    Image(systemName: bookmark.isImportant ? "flag.fill" : "flag")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(bookmark.isImportant ? (isSelected ? Theme.gold : Theme.pink) : (isSelected ? Color.white.opacity(0.8) : Theme.textTertiary))
-                        .frame(width: 24, height: 24)
+                if showsActions {
+                    HStack(spacing: 10) {
+                        BookmarkRowGlyphAction(symbolName: "arrow.up.forward", help: "Open") {
+                            store.open(bookmark)
+                        }
+                        BookmarkRowGlyphAction(symbolName: "doc.on.doc", help: "Copy link") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(bookmark.location, forType: .string)
+                        }
+                        BookmarkRowGlyphAction(
+                            symbolName: bookmark.isImportant ? "pin.fill" : "pin",
+                            isActive: bookmark.isImportant,
+                            help: bookmark.isImportant ? "Unpin" : "Pin"
+                        ) {
+                            store.toggleImportant(bookmark)
+                        }
+                        BookmarkRowGlyphAction(symbolName: "trash", tint: Theme.destructive, help: "Delete") {
+                            store.delete(bookmark)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
-                .buttonStyle(.plain)
-                .help(bookmark.isImportant ? "Unflag" : "Flag important")
-
-                Text(bookmark.category.rawValue)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(isSelected ? Theme.pink : Color.white)
-                    .lineLimit(1)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(isSelected ? Color.white : Theme.moss, in: Capsule())
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .padding(.leading, 14)
+            .padding(.trailing, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? Theme.pink : Theme.card)
-                    .shadow(color: Theme.ink.opacity(isSelected ? 0.18 : 0.07), radius: 5, y: 2)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Theme.card.opacity(isSelected ? 0.96 : 0.72))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(isSelected ? Theme.pink : Theme.cardStroke, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Theme.cardStroke, lineWidth: 1)
+            }
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(accentColor)
+                    .frame(width: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             }
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+
+    private var showsActions: Bool {
+        isHovered
     }
 
     private var iconName: String {
@@ -125,13 +167,49 @@ private struct BookmarkRow: View {
         case .text: Theme.rose
         }
     }
+
+    private var accentColor: Color {
+        switch bookmark.displayCategory {
+        case .work: Theme.rose
+        case .code: Theme.lavender
+        case .design: Theme.gold
+        case .docs, .screenshots: Theme.wood
+        default: iconTint
+        }
+    }
+
+    private func shortTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
+private struct BookmarkRowGlyphAction: View {
+    let symbolName: String
+    var isActive = false
+    var tint: Color? = nil
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbolName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(tint ?? (isActive ? Theme.gold : Theme.textTertiary))
+                .frame(width: 14, height: 14)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
 }
 
 private struct EmptyPileView: View {
     var body: some View {
         VStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(Theme.night)
                     .rotationEffect(.degrees(-2))
                 Image(systemName: "sparkles")
@@ -148,6 +226,6 @@ private struct EmptyPileView: View {
                 .foregroundStyle(Theme.textSecondary)
         }
         .padding(28)
-        .paperPanel(cornerRadius: 12, tint: Theme.grass)
+        .paperPanel(cornerRadius: 4, tint: Theme.grass)
     }
 }

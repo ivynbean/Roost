@@ -2,15 +2,33 @@ import SwiftUI
 
 struct NotesListView: View {
     @EnvironmentObject private var noteStore: NoteStore
+    @EnvironmentObject private var bookmarkStore: BookmarkStore
     @EnvironmentObject private var navigation: NavigationModel
     @EnvironmentObject private var calendarService: CalendarService
     @AppStorage("roost.showCalendarInToday") private var showCalendar = true
+    @State private var notesExpanded = true
+    @State private var savedExpanded = true
+    @State private var collapsedDays: Set<Date> = []
 
     private var showsCalendarStrip: Bool {
         navigation.selection == .today && showCalendar
     }
 
     var body: some View {
+        if navigation.selection == .today {
+            TodayTimelineView(
+                notes: todayNotes,
+                bookmarks: todayBookmarks,
+                notesExpanded: $notesExpanded,
+                savedExpanded: $savedExpanded,
+                onAddNote: addNote
+            )
+        } else {
+            notesOnlyBody
+        }
+    }
+
+    private var notesOnlyBody: some View {
         Group {
             if groupedNotes.isEmpty {
                 VStack(spacing: 0) {
@@ -32,7 +50,7 @@ struct NotesListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         if showsCalendarStrip {
                             TodayCalendarStrip()
                                 .padding(.bottom, 8)
@@ -40,47 +58,54 @@ struct NotesListView: View {
 
                         ForEach(groupedNotes, id: \.day) { group in
                             Section {
-                                ForEach(group.notes) { note in
-                                    NoteRow(note: note, isSelected: note.id == noteStore.selectedNoteID)
-                                        .contextMenu {
-                                            Button(note.isOnAgenda ? "Remove from Agenda" : "Put on the Agenda") {
-                                                noteStore.toggleAgenda(note.id)
-                                            }
-                                            Button(note.isDone ? "Mark Not Done" : "Mark Done") {
-                                                noteStore.toggleDone(note.id)
-                                            }
-                                            Menu("Move to Project") {
-                                                ForEach(noteStore.projects) { project in
-                                                    Button(project.name) {
-                                                        noteStore.update(note.id) { $0.projectID = project.id }
+                                if !collapsedDays.contains(group.day) {
+                                    ForEach(group.notes) { note in
+                                        NoteRow(note: note, isSelected: note.id == noteStore.selectedNoteID)
+                                            .contextMenu {
+                                                Button(note.isOnAgenda ? "Remove from Agenda" : "Put on the Agenda") {
+                                                    noteStore.toggleAgenda(note.id)
+                                                }
+                                                Button(note.isTask ? "Convert to Note" : "Make Task") {
+                                                    noteStore.update(note.id) {
+                                                        $0.isTask.toggle()
+                                                        if !$0.isTask { $0.isDone = false }
                                                     }
                                                 }
-                                                Button("No Project") {
-                                                    noteStore.update(note.id) { $0.projectID = nil }
+                                                if note.isTask {
+                                                    Button(note.isDone ? "Mark Not Done" : "Mark Done") {
+                                                        noteStore.toggleDone(note.id)
+                                                    }
+                                                }
+                                                Menu("Move to Project") {
+                                                    ForEach(noteStore.projects) { project in
+                                                        Button(project.name) {
+                                                            noteStore.update(note.id) { $0.projectID = project.id }
+                                                        }
+                                                    }
+                                                    Button("No Project") {
+                                                        noteStore.update(note.id) { $0.projectID = nil }
+                                                    }
+                                                }
+                                                Divider()
+                                                Button("Delete", role: .destructive) {
+                                                    noteStore.deleteNote(note.id)
                                                 }
                                             }
-                                            Divider()
-                                            Button("Delete", role: .destructive) {
-                                                noteStore.deleteNote(note.id)
-                                            }
-                                        }
+                                    }
                                 }
                             } header: {
-                                HStack(spacing: 8) {
-                                    Text(dayLabel(for: group.day))
-                                        .font(.subheadline.weight(.bold))
-                                        .foregroundStyle(Theme.textPrimary)
-                                    Rectangle()
-                                        .fill(Theme.wood.opacity(0.25))
-                                        .frame(height: 1)
+                                TimelineSectionHeader(
+                                    title: dayLabel(for: group.day),
+                                    count: group.notes.count,
+                                    isExpanded: !collapsedDays.contains(group.day)
+                                ) {
+                                    toggleDay(group.day)
                                 }
-                                .padding(.horizontal, 4)
-                                .padding(.top, 12)
-                                .padding(.bottom, 2)
                             }
                         }
                     }
-                    .padding(12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
             }
         }
@@ -96,10 +121,37 @@ struct NotesListView: View {
         }
     }
 
+    private var todayNotes: [Note] {
+        noteStore.visibleNotes(for: .today)
+    }
+
+    private var todayBookmarks: [Bookmark] {
+        let calendar = Calendar.current
+        let query = noteStore.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return bookmarkStore.bookmarks
+            .filter { calendar.isDateInToday($0.createdAt) }
+            .filter { bookmark in
+                guard !query.isEmpty else { return true }
+                return bookmark.displayTitle.localizedCaseInsensitiveContains(query)
+                    || bookmark.displayLocation.localizedCaseInsensitiveContains(query)
+                    || bookmark.summary.localizedCaseInsensitiveContains(query)
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func toggleDay(_ day: Date) {
+        if collapsedDays.contains(day) {
+            collapsedDays.remove(day)
+        } else {
+            collapsedDays.insert(day)
+        }
+    }
+
     private var listTitle: String {
         switch navigation.selection {
         case .today: "Today"
         case .agenda: "On the Agenda"
+        case .tasks: "Tasks"
         case .allNotes: "All Notes"
         case .project(let id): noteStore.project(for: id)?.name ?? "Project"
         case .collection(let category): category.rawValue
@@ -124,115 +176,492 @@ struct NotesListView: View {
     }
 
     private func addNote() {
+        bookmarkStore.selectedBookmarkID = nil
         var projectID: UUID?
         if case .project(let id) = navigation.selection {
             projectID = id
         }
         let date: Date? = navigation.selection == .today ? Date() : nil
-        let note = noteStore.addNote(projectID: projectID, date: date)
+        let note = noteStore.addNote(
+            projectID: projectID,
+            date: date,
+            isTask: navigation.selection == .tasks
+        )
         if navigation.selection == .agenda {
             noteStore.toggleAgenda(note.id)
         }
     }
 }
 
-private struct NoteRow: View {
+private struct TodayTimelineView: View {
     @EnvironmentObject private var noteStore: NoteStore
-    let note: Note
+    @EnvironmentObject private var bookmarkStore: BookmarkStore
+    @EnvironmentObject private var calendarService: CalendarService
+    @AppStorage("roost.showCalendarInToday") private var showCalendar = true
+    let notes: [Note]
+    let bookmarks: [Bookmark]
+    @Binding var notesExpanded: Bool
+    @Binding var savedExpanded: Bool
+    let onAddNote: () -> Void
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if showCalendar {
+                    TodayCalendarStrip()
+                        .padding(.bottom, 10)
+                }
+
+                TimelineSectionHeader(
+                    title: "Notes",
+                    count: notes.count,
+                    isExpanded: notesExpanded
+                ) {
+                    notesExpanded.toggle()
+                }
+
+                if notesExpanded {
+                    if notes.isEmpty {
+                        InlineEmptyRow(
+                            symbolName: "square.and.pencil",
+                            title: "No notes yet",
+                            message: "Use the capture bar above or start a note."
+                        ) {
+                            onAddNote()
+                        }
+                    } else {
+                        ForEach(notes) { note in
+                            NoteRow(note: note, isSelected: note.id == noteStore.selectedNoteID)
+                        }
+                    }
+                }
+
+                TimelineSectionHeader(
+                    title: "Saved today",
+                    count: bookmarks.count,
+                    isExpanded: savedExpanded
+                ) {
+                    savedExpanded.toggle()
+                }
+                .padding(.top, 10)
+
+                if savedExpanded {
+                    if bookmarks.isEmpty {
+                        InlineEmptyRow(
+                            symbolName: "tray.and.arrow.down",
+                            title: "Nothing saved yet",
+                            message: "Links, files, and screenshots captured today show up here."
+                        )
+                    } else {
+                        ForEach(bookmarks) { bookmark in
+                            TodayBookmarkRow(
+                                bookmark: bookmark,
+                                isSelected: bookmark.id == bookmarkStore.selectedBookmarkID
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(PaintedBackdrop())
+        .navigationTitle("Today")
+    }
+}
+
+private struct TimelineSectionHeader: View {
+    let title: String
+    let count: Int
+    let isExpanded: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(width: 14)
+
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+
+                Text("\(count)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textTertiary)
+                    .monospacedDigit()
+
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 12)
+            .padding(.bottom, 3)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct TodayBookmarkRow: View {
+    @EnvironmentObject private var bookmarkStore: BookmarkStore
+    @EnvironmentObject private var noteStore: NoteStore
+    let bookmark: Bookmark
     let isSelected: Bool
+    @State private var isHovered = false
 
     var body: some View {
         Button {
-            noteStore.selectedNoteID = note.id
+            noteStore.selectedNoteID = nil
+            bookmarkStore.selectedBookmarkID = bookmark.id
+            bookmarkStore.selectedCategory = bookmark.displayCategory
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Button {
-                    noteStore.toggleDone(note.id)
-                } label: {
-                    Image(systemName: note.isDone ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(note.isDone ? Theme.moss : (isSelected ? Color.white.opacity(0.85) : Theme.textTertiary))
-                }
-                .buttonStyle(.plain)
-                .help(note.isDone ? "Mark not done" : "Mark done")
-                .padding(.top, 1)
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Image(systemName: iconName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(iconTint)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(note.displayTitle)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.white : Theme.textPrimary)
-                        .strikethrough(note.isDone, color: Theme.ink.opacity(0.5))
-                        .lineLimit(1)
+                        Text(bookmark.displayTitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
 
-                    if !note.content.isEmpty {
-                        Text(note.content.firstLine(maxLength: 90))
-                            .font(.caption)
-                            .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Theme.textSecondary)
-                            .lineLimit(2)
+                        if bookmark.isImportant {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Theme.gold)
+                        }
                     }
 
+                    Text(bookmark.secondaryLabel)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+
                     HStack(spacing: 6) {
-                        if let project = noteStore.project(for: note.projectID) {
-                            Label(project.name, systemImage: project.symbolName)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(isSelected ? Theme.pink : Color.white)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(
-                                    isSelected ? Color.white : Theme.projectColor(project.colorIndex),
-                                    in: Capsule()
-                                )
-                        }
+                        Text(shortTime(bookmark.createdAt))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
 
-                        if note.date != nil {
-                            Label(shortDate(note.timelineDate), systemImage: "calendar")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Theme.textSecondary)
-                        }
+                        if bookmark.displayCategory != .readLater {
+                            Text("•")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(accentColor)
 
-                        if !note.linkedBookmarkIDs.isEmpty {
-                            Label("\(note.linkedBookmarkIDs.count)", systemImage: "link")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Theme.textSecondary)
+                            Text(bookmark.displayCategory.rawValue)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
                 }
 
                 Spacer(minLength: 10)
 
-                Button {
-                    noteStore.toggleAgenda(note.id)
-                } label: {
-                    Image(systemName: note.isOnAgenda ? "star.fill" : "star")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(note.isOnAgenda ? Theme.gold : (isSelected ? Color.white.opacity(0.8) : Theme.textTertiary))
-                        .frame(width: 24, height: 24)
+                if showsActions {
+                    HStack(spacing: 10) {
+                        TimelineGlyphAction(symbolName: "arrow.up.forward", help: "Open") {
+                            bookmarkStore.open(bookmark)
+                        }
+                        TimelineGlyphAction(symbolName: "doc.on.doc", help: "Copy link") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(bookmark.location, forType: .string)
+                        }
+                        TimelineGlyphAction(
+                            symbolName: bookmark.isImportant ? "pin.fill" : "pin",
+                            isActive: bookmark.isImportant,
+                            help: bookmark.isImportant ? "Unpin" : "Pin"
+                        ) {
+                            bookmarkStore.toggleImportant(bookmark)
+                        }
+                        TimelineGlyphAction(symbolName: "trash", tint: Theme.destructive, help: "Delete") {
+                            bookmarkStore.delete(bookmark)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
-                .buttonStyle(.plain)
-                .help(note.isOnAgenda ? "Remove from agenda" : "Put on the agenda")
             }
-            .padding(.vertical, 11)
-            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .padding(.leading, 14)
+            .padding(.trailing, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? Theme.pink : Theme.card)
-                    .shadow(color: Theme.ink.opacity(isSelected ? 0.18 : 0.07), radius: 5, y: 2)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Theme.card.opacity(isSelected ? 0.96 : 0.72))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(isSelected ? Theme.pink : Theme.cardStroke, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Theme.cardStroke, lineWidth: 1)
+            }
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(accentColor)
+                    .frame(width: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             }
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .contextMenu {
+            Button("Open") {
+                bookmarkStore.open(bookmark)
+            }
+            Menu("Move to Collection") {
+                ForEach(BookmarkCategory.pileCases) { category in
+                    Button(category.rawValue) {
+                        bookmarkStore.move(bookmark, to: category)
+                    }
+                }
+            }
+            Button("Delete", role: .destructive) {
+                bookmarkStore.delete(bookmark)
+            }
+        }
     }
 
-    private func shortDate(_ date: Date) -> String {
+    private var showsActions: Bool {
+        isHovered
+    }
+
+    private var iconName: String {
+        switch bookmark.kind {
+        case .web: "globe"
+        case .file: "doc"
+        case .text: "text.quote"
+        }
+    }
+
+    private var iconTint: Color {
+        switch bookmark.kind {
+        case .web: Theme.lavender
+        case .file: Theme.wood
+        case .text: Theme.rose
+        }
+    }
+
+    private var accentColor: Color {
+        switch bookmark.displayCategory {
+        case .work: Theme.rose
+        case .code: Theme.lavender
+        case .design: Theme.gold
+        case .docs, .screenshots: Theme.wood
+        default: iconTint
+        }
+    }
+
+    private func shortTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        formatter.doesRelativeDateFormatting = true
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
+private struct TimelineGlyphAction: View {
+    let symbolName: String
+    var isActive = false
+    var tint: Color? = nil
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbolName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(tint ?? (isActive ? Theme.gold : Theme.textTertiary))
+                .frame(width: 14, height: 14)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+private struct InlineEmptyRow: View {
+    let symbolName: String
+    let title: String
+    let message: String
+    var action: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbolName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 34, height: 34)
+                .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if let action {
+                Button(action: action) {
+                    Label("New Note", systemImage: "plus")
+                        .labelStyle(.titleAndIcon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 9)
+                        .frame(height: 28)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.white)
+                .background(Theme.rose, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(Theme.card.opacity(0.52), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+    }
+}
+
+private struct NoteRow: View {
+    @EnvironmentObject private var noteStore: NoteStore
+    @EnvironmentObject private var bookmarkStore: BookmarkStore
+    let note: Note
+    let isSelected: Bool
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            bookmarkStore.selectedBookmarkID = nil
+            noteStore.selectedNoteID = note.id
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Image(systemName: noteIconName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(noteIconColor)
+
+                        Text(note.displayTitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .strikethrough(note.isTask && note.isDone, color: Theme.ink.opacity(0.5))
+                            .lineLimit(1)
+
+                        if note.isOnAgenda {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Theme.gold)
+                        }
+                    }
+
+                    if !note.content.isEmpty {
+                        Text(note.content.firstLine(maxLength: 90))
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(2)
+                    }
+
+                    HStack(spacing: 6) {
+                        Text(shortTime(note.timelineDate))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+
+                        if let project = noteStore.project(for: note.projectID) {
+                            Text("•")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Theme.projectColor(project.colorIndex))
+
+                            Text(project.name)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 10)
+
+                if showsActions {
+                    HStack(spacing: 10) {
+                        TimelineGlyphAction(
+                            symbolName: note.isOnAgenda ? "pin.fill" : "pin",
+                            isActive: note.isOnAgenda,
+                            help: note.isOnAgenda ? "Unpin from agenda" : "Pin to agenda"
+                        ) {
+                            noteStore.toggleAgenda(note.id)
+                        }
+
+                        TimelineGlyphAction(
+                            symbolName: note.isTask ? (note.isDone ? "arrow.uturn.backward" : "checkmark") : "checklist",
+                            isActive: note.isTask && note.isDone,
+                            help: note.isTask ? (note.isDone ? "Mark not done" : "Mark done") : "Make task"
+                        ) {
+                            if note.isTask {
+                                noteStore.toggleDone(note.id)
+                            } else {
+                                noteStore.update(note.id) { $0.isTask = true }
+                            }
+                        }
+                        TimelineGlyphAction(symbolName: "trash", tint: Theme.destructive, help: "Delete") {
+                            noteStore.deleteNote(note.id)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.leading, 14)
+            .padding(.trailing, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Theme.card.opacity(isSelected ? 0.96 : 0.72))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Theme.cardStroke, lineWidth: 1)
+            }
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(accentColor)
+                    .frame(width: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            }
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+
+    private var showsActions: Bool {
+        isHovered
+    }
+
+    private var noteIconName: String {
+        if note.isTask {
+            return note.isDone ? "checkmark.circle.fill" : "checkmark.circle"
+        }
+        return note.content.isEmpty ? "doc.text" : "doc.plaintext"
+    }
+
+    private var noteIconColor: Color {
+        note.isTask && note.isDone ? Theme.moss : accentColor
+    }
+
+    private var accentColor: Color {
+        if let project = noteStore.project(for: note.projectID) {
+            return Theme.projectColor(project.colorIndex)
+        }
+        return Theme.lavender
+    }
+
+    private func shortTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
         return formatter.string(from: date)
     }
 }
@@ -289,7 +718,7 @@ private struct TodayCalendarStrip: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperPanel(cornerRadius: 10, tint: Theme.moss)
+        .paperPanel(cornerRadius: 4, tint: Theme.moss)
         .onAppear {
             calendarService.refreshAuthorization()
             calendarService.loadTodayEvents()
@@ -317,19 +746,23 @@ private struct EmptyNotesView: View {
             Text(emptyTitle)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Jot down what's on your mind — every note lives on the day you wrote it.")
+            Text("Jot down what's on your mind. Every note lives on the day you wrote it.")
                 .font(.callout)
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             Button(action: onAdd) {
                 Label("New Note", systemImage: "plus")
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.white)
+            .background(Theme.rose, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .padding(28)
         .frame(maxWidth: 380)
-        .paperPanel(cornerRadius: 12, tint: Theme.grass)
+        .paperPanel(cornerRadius: 4, tint: Theme.grass)
     }
 
     private var emptyTitle: String {

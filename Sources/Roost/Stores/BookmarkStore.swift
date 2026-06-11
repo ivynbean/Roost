@@ -6,7 +6,7 @@ final class BookmarkStore: ObservableObject {
     @Published var bookmarks: [Bookmark] = [] {
         didSet { scheduleSave() }
     }
-    @Published var selectedCategory: BookmarkCategory = .inbox
+    @Published var selectedCategory: BookmarkCategory = .readLater
     @Published var selectedBookmarkID: Bookmark.ID?
     @Published var searchText = ""
     @Published var lastImportMessage = "Paste, drop, or type anything worth keeping."
@@ -33,12 +33,11 @@ final class BookmarkStore: ObservableObject {
     }
 
     var visibleBookmarks: [Bookmark] {
-        bookmarks
-            .filter { selectedCategory == .inbox ? true : $0.category == selectedCategory }
+        bookmarks(in: selectedCategory)
             .filter { bookmark in
                 guard !searchText.isEmpty else { return true }
-                return bookmark.title.localizedCaseInsensitiveContains(searchText)
-                    || bookmark.location.localizedCaseInsensitiveContains(searchText)
+                return bookmark.displayTitle.localizedCaseInsensitiveContains(searchText)
+                    || bookmark.displayLocation.localizedCaseInsensitiveContains(searchText)
                     || bookmark.summary.localizedCaseInsensitiveContains(searchText)
             }
             .sorted { $0.createdAt > $1.createdAt }
@@ -49,6 +48,15 @@ final class BookmarkStore: ObservableObject {
         return bookmarks.first { $0.id == selectedBookmarkID }
     }
 
+    func bookmarks(in category: BookmarkCategory) -> [Bookmark] {
+        bookmarks.filter { bookmark in
+            if category == .screenshots {
+                return bookmark.isScreenshot
+            }
+            return bookmark.displayCategory == category
+        }
+    }
+
     @discardableResult
     func add(rawValue: String) -> Bookmark? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -57,15 +65,16 @@ final class BookmarkStore: ObservableObject {
         let bookmark = sorter.bookmark(from: trimmed)
         if let existing = existingBookmark(matching: bookmark.location) {
             selectedBookmarkID = existing.id
-            lastImportMessage = "Already in your roost: \(existing.title)"
+            selectedCategory = existing.displayCategory
+            lastImportMessage = "Already in your roost: \(existing.displayTitle)"
             return existing
         }
 
         bookmarks.insert(bookmark, at: 0)
-        selectedCategory = bookmark.category
+        selectedCategory = bookmark.displayCategory
         selectedBookmarkID = bookmark.id
-        lastImportMessage = "Tucked away: \(bookmark.title)"
-        logger.info("Captured bookmark category=\(bookmark.category.rawValue, privacy: .public) kind=\(bookmark.kind.rawValue, privacy: .public)")
+        lastImportMessage = "Tucked away: \(bookmark.displayTitle)"
+        logger.info("Captured bookmark category=\(bookmark.displayCategory.rawValue, privacy: .public) kind=\(bookmark.kind.rawValue, privacy: .public)")
         fetchRealTitleIfNeeded(for: bookmark)
         return bookmark
     }
@@ -104,10 +113,10 @@ final class BookmarkStore: ObservableObject {
 
     func move(_ bookmark: Bookmark, to category: BookmarkCategory) {
         guard let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) else { return }
-        bookmarks[index].category = category
-        selectedCategory = category
+        bookmarks[index].category = category.normalized
+        selectedCategory = category.normalized
         selectedBookmarkID = bookmark.id
-        logger.info("Moved bookmark id=\(bookmark.id.uuidString, privacy: .public) category=\(category.rawValue, privacy: .public)")
+        logger.info("Moved bookmark id=\(bookmark.id.uuidString, privacy: .public) category=\(category.normalized.rawValue, privacy: .public)")
     }
 
     func move(bookmarkID: Bookmark.ID, to category: BookmarkCategory) {
@@ -128,14 +137,14 @@ final class BookmarkStore: ObservableObject {
         self.selectedBookmarkID = visibleBookmarks.first?.id
     }
 
-    func autoSortAll() {
-        bookmarks = bookmarks.map { bookmark in
-            var sorted = bookmark
-            sorted.category = sorter.category(for: bookmark)
-            return sorted
+    func delete(_ bookmark: Bookmark) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) else { return }
+        bookmarks.remove(at: index)
+        if selectedBookmarkID == bookmark.id {
+            selectedBookmarkID = visibleBookmarks.first?.id
         }
-        lastImportMessage = "Auto sorted \(bookmarks.count) items."
-        logger.info("Auto sorted \(self.bookmarks.count) bookmarks")
+        lastImportMessage = "Removed \(bookmark.displayTitle)"
+        logger.info("Deleted bookmark id=\(bookmark.id.uuidString, privacy: .public)")
     }
 
     func openSelected() {
@@ -144,15 +153,31 @@ final class BookmarkStore: ObservableObject {
     }
 
     func open(_ bookmark: Bookmark) {
-        let url: URL?
-        if bookmark.kind == .file {
-            url = URL(fileURLWithPath: bookmark.location)
-        } else {
-            url = URL(string: bookmark.location)
+        guard let url = resolvedOpenURL(for: bookmark) else {
+            lastImportMessage = "Couldn't open \(bookmark.displayTitle)."
+            logger.error("Failed to resolve open URL for bookmark id=\(bookmark.id.uuidString, privacy: .public)")
+            return
         }
 
-        guard let url else { return }
-        NSWorkspace.shared.open(url)
+        let didOpen: Bool
+        if bookmark.kind == .file {
+            let path = url.path
+            guard FileManager.default.fileExists(atPath: path) else {
+                lastImportMessage = "File not found: \(bookmark.displayTitle)"
+                logger.error("Open failed, missing file path=\(path, privacy: .public)")
+                return
+            }
+            didOpen = NSWorkspace.shared.openFile(path) || NSWorkspace.shared.open(url)
+        } else {
+            didOpen = NSWorkspace.shared.open(url)
+        }
+
+        guard didOpen else {
+            lastImportMessage = "Couldn't open \(bookmark.displayTitle)."
+            logger.error("Workspace refused open for bookmark id=\(bookmark.id.uuidString, privacy: .public)")
+            return
+        }
+
         if let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
             bookmarks[index].lastOpenedAt = Date()
         }
@@ -165,14 +190,14 @@ final class BookmarkStore: ObservableObject {
         guard existingBookmark(matching: url.path) == nil else { return }
 
         let bookmark = Bookmark(
-            title: url.deletingPathExtension().lastPathComponent,
+            title: Bookmark.friendlyFileTitle(for: url.path, fallback: url.deletingPathExtension().lastPathComponent),
             location: url.path,
             kind: .file,
             category: .screenshots,
             summary: url.path
         )
         bookmarks.insert(bookmark, at: 0)
-        lastImportMessage = "Screenshot saved: \(bookmark.title)"
+        lastImportMessage = "Screenshot saved: \(bookmark.displayTitle)"
         logger.info("Captured screenshot bookmark id=\(bookmark.id.uuidString, privacy: .public)")
     }
 
@@ -190,22 +215,45 @@ final class BookmarkStore: ObservableObject {
     private func addFile(_ url: URL) -> Bookmark {
         if let existing = existingBookmark(matching: url.path) {
             selectedBookmarkID = existing.id
-            lastImportMessage = "Already in your roost: \(existing.title)"
+            selectedCategory = existing.displayCategory
+            lastImportMessage = "Already in your roost: \(existing.displayTitle)"
             return existing
         }
 
         let bookmark = Bookmark(
-            title: url.deletingPathExtension().lastPathComponent,
+            title: Bookmark.friendlyFileTitle(for: url.path, fallback: url.deletingPathExtension().lastPathComponent),
             location: url.path,
             kind: .file,
             category: .docs,
             summary: url.path
         )
         bookmarks.insert(bookmark, at: 0)
-        selectedCategory = bookmark.category
+        selectedCategory = bookmark.displayCategory
         selectedBookmarkID = bookmark.id
-        lastImportMessage = "Captured \(bookmark.title)"
+        lastImportMessage = "Captured \(bookmark.displayTitle)"
         return bookmark
+    }
+
+    private func resolvedOpenURL(for bookmark: Bookmark) -> URL? {
+        let rawLocation = bookmark.location.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if bookmark.kind == .file {
+            if let url = URL(string: rawLocation), url.isFileURL {
+                return url
+            }
+
+            let expandedPath = (rawLocation as NSString).expandingTildeInPath
+            return URL(fileURLWithPath: expandedPath)
+        }
+
+        if let url = URL(string: rawLocation), url.scheme != nil {
+            return url
+        }
+
+        guard let encoded = rawLocation.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) else {
+            return nil
+        }
+        return URL(string: encoded)
     }
 
     private func load() {
@@ -215,10 +263,21 @@ final class BookmarkStore: ObservableObject {
         }
 
         do {
-            bookmarks = try JSONDecoder.roost.decode([Bookmark].self, from: data)
+            bookmarks = normalizeLegacyBookmarks(try JSONDecoder.roost.decode([Bookmark].self, from: data))
         } catch {
             logger.error("Failed to load bookmarks: \(error.localizedDescription, privacy: .public)")
             bookmarks = Bookmark.samples
+        }
+    }
+
+    private func normalizeLegacyBookmarks(_ decoded: [Bookmark]) -> [Bookmark] {
+        decoded.map { bookmark in
+            var normalized = bookmark
+            normalized.category = bookmark.displayCategory
+            if normalized.kind == .file {
+                normalized.title = Bookmark.friendlyFileTitle(for: normalized.location, fallback: normalized.title)
+            }
+            return normalized
         }
     }
 

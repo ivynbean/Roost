@@ -2,28 +2,32 @@ import SwiftUI
 import CoreText
 
 enum Theme {
-    static let pink = Color(red: 0.80, green: 0.16, blue: 0.30)
-    static let rose = Color(red: 0.92, green: 0.38, blue: 0.48)
-    static let blush = Color(red: 0.99, green: 0.79, blue: 0.78)
-    static let lavender = Color(red: 0.52, green: 0.45, blue: 0.78)
-    static let cream = Color(red: 0.98, green: 0.94, blue: 0.86)
-    static let paper = Color(red: 0.99, green: 0.97, blue: 0.92)
-    static let moss = Color(red: 0.33, green: 0.48, blue: 0.26)
-    static let grass = Color(red: 0.68, green: 0.76, blue: 0.54)
-    static let ink = Color(red: 0.10, green: 0.12, blue: 0.16)
-    static let night = Color(red: 0.08, green: 0.14, blue: 0.28)
-    static let gold = Color(red: 0.85, green: 0.62, blue: 0.10)
-    static let wood = Color(red: 0.50, green: 0.34, blue: 0.23)
-    static let sidebar = Color(red: 0.93, green: 0.89, blue: 0.81)
-    static let selected = Color(red: 0.23, green: 0.25, blue: 0.24)
+    static let pink = Color(red: 0.83, green: 0.44, blue: 0.31)
+    static let rose = Color(red: 0.78, green: 0.38, blue: 0.23)
+    static let blush = Color(red: 0.95, green: 0.87, blue: 0.82)
+    static let lavender = Color(red: 0.29, green: 0.42, blue: 0.60)
+    static let cream = Color(red: 0.95, green: 0.91, blue: 0.85)
+    static let paper = Color(red: 0.99, green: 0.96, blue: 0.93)
+    static let moss = Color(red: 0.35, green: 0.54, blue: 0.42)
+    static let grass = Color(red: 0.42, green: 0.60, blue: 0.48)
+    static let ink = Color(red: 0.11, green: 0.09, blue: 0.19)
+    static let night = Color(red: 0.11, green: 0.09, blue: 0.19)
+    static let gold = Color(red: 0.91, green: 0.75, blue: 0.41)
+    static let wood = Color(red: 0.60, green: 0.48, blue: 0.38)
+    static let sidebar = Color(red: 0.96, green: 0.93, blue: 0.88)
+    static let selected = Color(red: 0.93, green: 0.87, blue: 0.82)
 
     // Semantic tokens — prefer these over ad-hoc opacities so text keeps a
     // readable floor of contrast against the paper backgrounds.
     static let textPrimary = ink
-    static let textSecondary = ink.opacity(0.78)
-    static let textTertiary = ink.opacity(0.60)
-    static let card = Color.white
-    static let cardStroke = wood.opacity(0.22)
+    static let textSecondary = Color(red: 0.40, green: 0.31, blue: 0.25)
+    static let textTertiary = Color(red: 0.60, green: 0.48, blue: 0.38)
+    static let card = Color(red: 1.00, green: 0.98, blue: 0.96)
+    static let cardStroke = Color(red: 0.55, green: 0.35, blue: 0.24).opacity(0.14)
+    static let field = Color(red: 0.95, green: 0.91, blue: 0.85)
+    static let divider = Color(red: 0.55, green: 0.35, blue: 0.24).opacity(0.14)
+    static let sidebarAccent = Color(red: 0.93, green: 0.87, blue: 0.82)
+    static let destructive = Color(red: 0.75, green: 0.22, blue: 0.17)
 
     static func logoFont(size: CGFloat) -> Font {
         .custom("Sophiecomic Regular", size: size)
@@ -56,11 +60,10 @@ struct PaperPanel: ViewModifier {
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(Theme.card.opacity(fillOpacity))
-                    .shadow(color: Theme.ink.opacity(0.10), radius: 10, y: 4)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(tint.opacity(0.55), lineWidth: 1)
+                    .stroke(Theme.cardStroke, lineWidth: 1)
             }
     }
 }
@@ -73,20 +76,7 @@ extension View {
 
 struct PaintedBackdrop: View {
     var body: some View {
-        ZStack {
-            Theme.paper
-            LinearGradient(
-                colors: [
-                    Theme.paper,
-                    Theme.blush.opacity(0.18),
-                    Theme.grass.opacity(0.16)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            StarScatter()
-                .opacity(0.36)
-        }
+        Theme.paper
         .ignoresSafeArea()
     }
 }

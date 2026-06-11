@@ -16,14 +16,7 @@ struct BucketWindowView: View {
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            ZStack {
-                Theme.paper
-                LinearGradient(
-                    colors: [Theme.paper, Theme.cream.opacity(0.86), Theme.blush.opacity(0.18)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            Theme.paper
         }
         .contentShape(Rectangle())
         .onAppear { isInputFocused = true }
@@ -41,8 +34,8 @@ struct BucketWindowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Roost")
-                    .font(Theme.logoFont(size: 30))
-                    .foregroundStyle(Theme.pink)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Capture links, files, and notes")
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
@@ -64,26 +57,26 @@ struct BucketWindowView: View {
 
     private var dropZone: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isTargeted ? Theme.night.opacity(0.96) : Theme.ink.opacity(0.92))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(isTargeted ? Theme.field : Theme.card)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(isTargeted ? Theme.gold : Theme.wood.opacity(0.18), lineWidth: isTargeted ? 2 : 1)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(isTargeted ? Theme.gold : Theme.cardStroke, lineWidth: isTargeted ? 2 : 1)
                 }
 
             HStack(spacing: 14) {
                 Image(systemName: isTargeted ? "sparkles" : "tray.and.arrow.down")
                     .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(isTargeted ? Theme.gold : Theme.paper.opacity(0.90))
+                    .foregroundStyle(isTargeted ? Theme.gold : Theme.textTertiary)
                     .symbolEffect(.bounce, value: isTargeted)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isTargeted ? "Drop to capture" : "Drop anything here")
                         .font(.headline.weight(.semibold))
-                        .foregroundStyle(Theme.paper)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(store.lastImportMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.paper.opacity(0.68))
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -107,7 +100,11 @@ struct BucketWindowView: View {
     private func inputRow(showClipboardText: Bool) -> some View {
         HStack(spacing: 8) {
             TextField("Paste a URL, path, or note", text: $catchAllText)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .padding(.horizontal, 10)
+                .frame(height: 32)
+                .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                 .focused($isInputFocused)
                 .onSubmit(captureTypedText)
                 .frame(minWidth: 180)
@@ -131,8 +128,11 @@ struct BucketWindowView: View {
             } label: {
                 Label("Add", systemImage: "plus")
                     .labelStyle(.iconOnly)
+                    .frame(width: 28, height: 28)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textSecondary)
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             .disabled(catchAllText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .help("Add")
         }
@@ -162,12 +162,11 @@ private struct AppLogoMark: View {
         }
         .frame(width: 52, height: 52)
         .padding(5)
-        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .stroke(Theme.wood.opacity(0.16), lineWidth: 1)
         }
-        .shadow(color: Theme.ink.opacity(0.10), radius: 8, y: 4)
         .accessibilityLabel("Roost logo")
     }
 }

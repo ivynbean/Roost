@@ -30,10 +30,10 @@ struct BookmarkSorter {
             let url = rawValue.hasPrefix("file://") ? URL(string: rawValue) : URL(fileURLWithPath: rawValue)
             if let url {
                 return Bookmark(
-                    title: url.deletingPathExtension().lastPathComponent,
+                    title: Bookmark.friendlyFileTitle(for: url.path, fallback: url.deletingPathExtension().lastPathComponent),
                     location: url.path,
                     kind: .file,
-                    category: .docs,
+                    category: fileCategory(for: url),
                     summary: url.path
                 )
             }
@@ -61,7 +61,16 @@ struct BookmarkSorter {
             return (category: category, score: score)
         }
 
-        return scores.max { $0.score < $1.score }.flatMap { $0.score > 0 ? $0.category : nil } ?? .inbox
+        return scores.max { $0.score < $1.score }.flatMap { $0.score > 0 ? $0.category : nil } ?? .readLater
+    }
+
+    private func fileCategory(for url: URL) -> BookmarkCategory {
+        let lowercasedName = url.lastPathComponent.lowercased()
+        if lowercasedName.hasPrefix("screenshot ") || lowercasedName.contains("screen shot ") {
+            return .screenshots
+        }
+        let sorted = category(for: lowercasedName)
+        return sorted == .readLater ? .docs : sorted
     }
 
     private func weight(for needle: String, in text: String) -> Int {

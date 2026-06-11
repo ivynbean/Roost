@@ -34,7 +34,7 @@ struct RoostApp: App {
                 .environmentObject(noteStore)
                 .environmentObject(navigation)
                 .environmentObject(calendarService)
-                .frame(minWidth: 760, idealWidth: 1120, minHeight: 520, idealHeight: 720)
+                .frame(minWidth: 700, idealWidth: 1120, minHeight: 520, idealHeight: 720)
                 .background(WindowConfigurator(style: .library))
                 .tint(Theme.pink)
         }
@@ -56,11 +56,6 @@ struct RoostApp: App {
                     store.captureClipboard()
                 }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
-
-                Button("Auto Sort All") {
-                    store.autoSortAll()
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
 
                 Button("Open Selected") {
                     store.openSelected()
