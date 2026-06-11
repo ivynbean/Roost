@@ -37,7 +37,15 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: true
+          body: |
+            Roost alpha build for tester downloads.
+
+            Includes:
+            - Roost.app.zip
+            - Roost.app.zip.sha256
+
+            Note: this build may be unsigned, so macOS Gatekeeper warnings are expected for external testers.
           files: |
             dist/Roost.app.zip
             dist/Roost.app.zip.sha256
-          generate_release_notes: true
