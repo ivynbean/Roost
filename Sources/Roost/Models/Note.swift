@@ -1,0 +1,100 @@
+import Foundation
+
+struct Project: Identifiable, Codable, Equatable {
+    var id: UUID
+    var name: String
+    var symbolName: String
+    var colorIndex: Int
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        symbolName: String = "folder",
+        colorIndex: Int = 0,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.symbolName = symbolName
+        self.colorIndex = colorIndex
+        self.createdAt = createdAt
+    }
+}
+
+struct Note: Identifiable, Codable, Equatable {
+    var id: UUID
+    var title: String
+    var content: String
+    var projectID: UUID?
+    var date: Date?
+    var isOnAgenda: Bool
+    var isDone: Bool
+    var linkedBookmarkIDs: [UUID]
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        title: String = "",
+        content: String = "",
+        projectID: UUID? = nil,
+        date: Date? = nil,
+        isOnAgenda: Bool = false,
+        isDone: Bool = false,
+        linkedBookmarkIDs: [UUID] = [],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.content = content
+        self.projectID = projectID
+        self.date = date
+        self.isOnAgenda = isOnAgenda
+        self.isDone = isDone
+        self.linkedBookmarkIDs = linkedBookmarkIDs
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case content
+        case projectID
+        case date
+        case isOnAgenda
+        case isDone
+        case linkedBookmarkIDs
+        case createdAt
+        case updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        content = try container.decodeIfPresent(String.self, forKey: .content) ?? ""
+        projectID = try container.decodeIfPresent(UUID.self, forKey: .projectID)
+        date = try container.decodeIfPresent(Date.self, forKey: .date)
+        isOnAgenda = try container.decodeIfPresent(Bool.self, forKey: .isOnAgenda) ?? false
+        isDone = try container.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
+        linkedBookmarkIDs = try container.decodeIfPresent([UUID].self, forKey: .linkedBookmarkIDs) ?? []
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
+    }
+
+    /// The day this note belongs to on the timeline: its assigned date when
+    /// scheduled, otherwise the day it was captured.
+    var timelineDate: Date {
+        date ?? createdAt
+    }
+
+    var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        let firstContentLine = content.firstLine(maxLength: 48)
+        return firstContentLine.isEmpty ? "Untitled note" : firstContentLine
+    }
+}

@@ -2,22 +2,41 @@
 
 Roost is a native SwiftUI desktop catch-all that launches as a compact
 always-on-top target, so you can paste, type, or drag URLs, file URLs, file
-paths, and loose notes straight into the window.
+paths, and loose notes straight into the window — and an Agenda-style
+notebook for organizing your thoughts by day and project, all stored locally.
 
 ## What works
 
+### Capture
 - Cute compact macOS catch-all window that can sit above the desktop.
 - Separate Roost Library window opened from the main surface.
 - Direct paste/type input in the main window.
-- Drag-and-drop capture for browser links, file URLs, and text.
+- Drag-and-drop capture for browser links, file URLs, and text — every
+  dropped item is captured, and repeat URLs are deduped.
 - Paste-from-clipboard capture for copied links, file URLs, and text.
-- Manual paste/add capture for URLs, paths, and notes.
 - Scored local sorting into smart buckets such as Important, Work, Code, Design,
   Money, Travel, Shopping, Media, People, Docs, Tools, and Read Later.
-- JSON persistence in Application Support.
-- Toolbar, sidebar, search, detail view, context menu moves, and open actions.
-- App Store prep files for icon, privacy manifest, sandbox entitlements, and
-  bundle metadata.
+- Editable notes on every saved bookmark.
+
+### Notes & projects (Agenda-style)
+- Day-grouped notes timeline: every note lives on the day you wrote it, or a
+  day you schedule it for.
+- Projects to split notes across whatever you're juggling, with rename/delete
+  and per-project colors.
+- "On the Agenda" star for the handful of notes that matter right now, plus
+  done/not-done checkmarks.
+- Today view combining today's notes with (optionally) today's calendar events.
+- Drop a link or file onto a note to attach it; attached items open from the
+  note and also live in your collections.
+- New Note from the toolbar, sidebar, or ⌘⇧N anywhere in the app.
+
+### Local-first
+- All data is JSON in Application Support — nothing leaves the Mac.
+- Optional read-only calendar connection (EventKit) shows today's events
+  beside your notes; connect it from the Today view or Settings. Roost never
+  writes to your calendars.
+- App Store prep files for icon, privacy manifest, sandbox entitlements
+  (including calendars), and bundle metadata.
 - Unified logging under subsystem `com.ivynbean.Roost`.
 
 ## Run

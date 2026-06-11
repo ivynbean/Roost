@@ -77,11 +77,12 @@ struct BookmarkSorter {
     }
 
     private func title(for url: URL) -> String {
-        if let host = url.host(percentEncoded: false), !url.lastPathComponent.isEmpty {
-            return "\(host) / \(url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent)"
-        }
+        guard let host = url.host(percentEncoded: false) else { return url.absoluteString }
+        let cleanedHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
 
-        return url.host(percentEncoded: false) ?? url.absoluteString
+        let component = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+        guard !component.isEmpty, component != "/" else { return cleanedHost }
+        return "\(cleanedHost) · \(component)"
     }
 
     private func summary(for url: URL) -> String {

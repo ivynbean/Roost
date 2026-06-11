@@ -17,13 +17,18 @@ final class BookmarkStore: ObservableObject {
     private let saveURL: URL
     private var saveTask: Task<Void, Never>?
 
-    init() {
-        let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let support = applicationSupport.appendingPathComponent("Roost", isDirectory: true)
-        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        saveURL = support.appendingPathComponent("bookmarks.json")
-        migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Stash", isDirectory: true))
-        migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Hatch", isDirectory: true))
+    init(directory: URL? = nil) {
+        if let directory {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            saveURL = directory.appendingPathComponent("bookmarks.json")
+        } else {
+            let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let support = applicationSupport.appendingPathComponent("Roost", isDirectory: true)
+            try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+            saveURL = support.appendingPathComponent("bookmarks.json")
+            migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Stash", isDirectory: true))
+            migrateLegacyDataIfNeeded(from: applicationSupport.appendingPathComponent("Hatch", isDirectory: true))
+        }
         load()
     }
 
@@ -44,23 +49,52 @@ final class BookmarkStore: ObservableObject {
         return bookmarks.first { $0.id == selectedBookmarkID }
     }
 
-    func add(rawValue: String) {
+    @discardableResult
+    func add(rawValue: String) -> Bookmark? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return nil }
 
         let bookmark = sorter.bookmark(from: trimmed)
+        if let existing = existingBookmark(matching: bookmark.location) {
+            selectedBookmarkID = existing.id
+            lastImportMessage = "Already in your roost: \(existing.title)"
+            return existing
+        }
+
         bookmarks.insert(bookmark, at: 0)
         selectedCategory = bookmark.category
         selectedBookmarkID = bookmark.id
         lastImportMessage = "Tucked away: \(bookmark.title)"
         logger.info("Captured bookmark category=\(bookmark.category.rawValue, privacy: .public) kind=\(bookmark.kind.rawValue, privacy: .public)")
+        fetchRealTitleIfNeeded(for: bookmark)
+        return bookmark
     }
 
-    func add(url: URL) {
+    /// Replaces the host/path placeholder title with the page's actual
+    /// <title> once it loads. Skipped if the user already renamed nothing —
+    /// the placeholder is only swapped while it still matches what the
+    /// sorter generated.
+    private func fetchRealTitleIfNeeded(for bookmark: Bookmark) {
+        guard bookmark.kind == .web, let url = URL(string: bookmark.location) else { return }
+        let placeholder = bookmark.title
+        Task { [weak self] in
+            guard let title = await PageTitleFetcher.fetchTitle(for: url) else { return }
+            await MainActor.run {
+                guard let self,
+                      let index = self.bookmarks.firstIndex(where: { $0.id == bookmark.id }),
+                      self.bookmarks[index].title == placeholder else { return }
+                self.bookmarks[index].title = title
+                self.lastImportMessage = "Tucked away: \(title)"
+            }
+        }
+    }
+
+    @discardableResult
+    func add(url: URL) -> Bookmark? {
         if url.isFileURL {
-            addFile(url)
+            return addFile(url)
         } else {
-            add(rawValue: url.absoluteString)
+            return add(rawValue: url.absoluteString)
         }
     }
 
@@ -124,7 +158,41 @@ final class BookmarkStore: ObservableObject {
         logger.info("Opened bookmark id=\(bookmark.id.uuidString, privacy: .public)")
     }
 
-    private func addFile(_ url: URL) {
+    /// Files a system screenshot without stealing focus: no selection or
+    /// category change, since captures happen while the user is mid-task.
+    func addScreenshot(_ url: URL) {
+        guard existingBookmark(matching: url.path) == nil else { return }
+
+        let bookmark = Bookmark(
+            title: url.deletingPathExtension().lastPathComponent,
+            location: url.path,
+            kind: .file,
+            category: .screenshots,
+            summary: url.path
+        )
+        bookmarks.insert(bookmark, at: 0)
+        lastImportMessage = "Screenshot saved: \(bookmark.title)"
+        logger.info("Captured screenshot bookmark id=\(bookmark.id.uuidString, privacy: .public)")
+    }
+
+    func updateSummary(_ bookmarkID: Bookmark.ID, summary: String) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmarkID }),
+              bookmarks[index].summary != summary else { return }
+        bookmarks[index].summary = summary
+    }
+
+    private func existingBookmark(matching location: String) -> Bookmark? {
+        bookmarks.first { $0.location == location }
+    }
+
+    @discardableResult
+    private func addFile(_ url: URL) -> Bookmark {
+        if let existing = existingBookmark(matching: url.path) {
+            selectedBookmarkID = existing.id
+            lastImportMessage = "Already in your roost: \(existing.title)"
+            return existing
+        }
+
         let bookmark = Bookmark(
             title: url.deletingPathExtension().lastPathComponent,
             location: url.path,
@@ -136,6 +204,7 @@ final class BookmarkStore: ObservableObject {
         selectedCategory = bookmark.category
         selectedBookmarkID = bookmark.id
         lastImportMessage = "Captured \(bookmark.title)"
+        return bookmark
     }
 
     private func load() {

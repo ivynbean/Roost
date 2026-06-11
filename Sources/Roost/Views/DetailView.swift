@@ -1,11 +1,21 @@
+import AppKit
 import SwiftUI
 import WebKit
 
 struct DetailView: View {
     @EnvironmentObject private var store: BookmarkStore
+    @EnvironmentObject private var noteStore: NoteStore
+    @EnvironmentObject private var navigation: NavigationModel
 
     var body: some View {
-        if let bookmark = store.selectedBookmark {
+        if navigation.selection.isNotesDomain {
+            if let note = noteStore.selectedNote {
+                NoteEditorView(note: note)
+                    .id(note.id)
+            } else {
+                NotePlaceholderView()
+            }
+        } else if let bookmark = store.selectedBookmark {
             BookmarkDetail(bookmark: bookmark)
         } else {
             DetailPlaceholder()
@@ -18,40 +28,52 @@ private struct BookmarkDetail: View {
     let bookmark: Bookmark
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                Label(bookmark.category.rawValue, systemImage: bookmark.category.symbolName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.moss)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Theme.grass.opacity(0.16), in: Capsule())
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(bookmark.category.rawValue, systemImage: bookmark.category.symbolName)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Theme.moss, in: Capsule())
 
-                Text(bookmark.title)
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(3)
-                    .textSelection(.enabled)
+                    Text(bookmark.title)
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(3)
+                        .textSelection(.enabled)
 
-                HStack(spacing: 10) {
-                    Button {
-                        store.toggleImportant(bookmark)
-                    } label: {
-                        Label(bookmark.isImportant ? "Flagged" : "Flag", systemImage: bookmark.isImportant ? "flag.fill" : "flag")
+                    HStack(spacing: 10) {
+                        Button {
+                            store.toggleImportant(bookmark)
+                        } label: {
+                            Label(bookmark.isImportant ? "Flagged" : "Flag", systemImage: bookmark.isImportant ? "flag.fill" : "flag")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            store.open(bookmark)
+                        } label: {
+                            Label("Open", systemImage: "arrow.up.forward.app")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Spacer()
                     }
-                    .buttonStyle(.bordered)
-
-                    Button {
-                        store.open(bookmark)
-                    } label: {
-                        Label("Open", systemImage: "arrow.up.forward.app")
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Spacer()
                 }
-            }
 
+                sections
+            }
+            .padding(26)
+            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
+        }
+        .background(PaintedBackdrop())
+    }
+
+    @ViewBuilder
+    private var sections: some View {
             DetailSection(title: "Location") {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: symbolName)
@@ -60,7 +82,21 @@ private struct BookmarkDetail: View {
                     Text(bookmark.location)
                         .font(.callout.monospaced())
                         .textSelection(.enabled)
-                        .foregroundStyle(Theme.ink.opacity(0.68))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+
+            if bookmark.kind == .file, let image = NSImage(contentsOfFile: bookmark.location) {
+                DetailSection(title: "Preview") {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 360)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Theme.ink.opacity(0.10), lineWidth: 1)
+                        }
                 }
             }
 
@@ -91,16 +127,15 @@ private struct BookmarkDetail: View {
             }
 
             DetailSection(title: "Notes") {
-                Text(bookmark.summary.isEmpty ? "No summary yet." : bookmark.summary)
-                    .foregroundStyle(Theme.ink.opacity(0.68))
-                    .textSelection(.enabled)
+                TextEditor(text: Binding(
+                    get: { bookmark.summary },
+                    set: { store.updateSummary(bookmark.id, summary: $0) }
+                ))
+                .font(.callout)
+                .foregroundStyle(Theme.textPrimary)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 64)
             }
-
-            Spacer()
-        }
-        .padding(26)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(PaintedBackdrop())
     }
 
     private var symbolName: String {
@@ -112,13 +147,21 @@ private struct BookmarkDetail: View {
     }
 }
 
+/// WKWebView that hands scroll events back to the enclosing SwiftUI
+/// ScrollView, so hovering the preview doesn't trap scrolling inside the page.
+private final class PreviewWebView: WKWebView {
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
+}
+
 private struct WebPreview: NSViewRepresentable {
     let url: URL
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsAirPlayForMediaPlayback = true
-        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let webView = PreviewWebView(frame: .zero, configuration: configuration)
         webView.allowsMagnification = true
         webView.setValue(false, forKey: "drawsBackground")
         return webView
@@ -138,12 +181,12 @@ private struct DetailSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title)
                 .font(.headline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             content
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .paperPanel(cornerRadius: 10, tint: Theme.rose, fillOpacity: 0.72)
+        .paperPanel(cornerRadius: 10, tint: Theme.rose)
     }
 }
 
@@ -177,11 +220,11 @@ private struct DetailPlaceholder: View {
 
             Text("Pick something from the pile")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.center)
             Text("Links, files, and notes you save in Roost appear here.")
                 .font(.callout)
-                .foregroundStyle(Theme.ink.opacity(0.68))
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(30)

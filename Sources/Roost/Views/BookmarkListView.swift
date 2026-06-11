@@ -63,12 +63,12 @@ private struct BookmarkRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(bookmark.title)
                         .font(.callout.weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.white : Theme.ink)
+                        .foregroundStyle(isSelected ? Color.white : Theme.textPrimary)
                         .lineLimit(1)
 
                     Text(bookmark.location)
                         .font(.caption)
-                        .foregroundStyle(isSelected ? Color.white.opacity(0.72) : Theme.ink.opacity(0.62))
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Theme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -79,19 +79,19 @@ private struct BookmarkRow: View {
                 } label: {
                     Image(systemName: bookmark.isImportant ? "flag.fill" : "flag")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(bookmark.isImportant ? Theme.pink : (isSelected ? Color.white.opacity(0.62) : Theme.ink.opacity(0.34)))
+                        .foregroundStyle(bookmark.isImportant ? (isSelected ? Theme.gold : Theme.pink) : (isSelected ? Color.white.opacity(0.8) : Theme.textTertiary))
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
                 .help(bookmark.isImportant ? "Unflag" : "Flag important")
 
                 Text(bookmark.category.rawValue)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(isSelected ? Color.white.opacity(0.80) : Theme.moss)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(isSelected ? Theme.pink : Color.white)
                     .lineLimit(1)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(isSelected ? Color.white.opacity(0.14) : Theme.grass.opacity(0.16), in: Capsule())
+                    .background(isSelected ? Color.white : Theme.moss, in: Capsule())
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
@@ -99,7 +99,12 @@ private struct BookmarkRow: View {
             .contentShape(Rectangle())
             .background {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? Theme.pink : Color.clear)
+                    .fill(isSelected ? Theme.pink : Theme.card)
+                    .shadow(color: Theme.ink.opacity(isSelected ? 0.18 : 0.07), radius: 5, y: 2)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(isSelected ? Theme.pink : Theme.cardStroke, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -136,13 +141,13 @@ private struct EmptyPileView: View {
             .frame(width: 118, height: 92)
 
             Text("Nothing tucked away yet")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.ink)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.textPrimary)
             Text("Paste, drop, or type anything into Roost to save it.")
                 .font(.callout)
-                .foregroundStyle(Theme.ink.opacity(0.66))
+                .foregroundStyle(Theme.textSecondary)
         }
         .padding(28)
-        .paperPanel(cornerRadius: 12, tint: Theme.grass, fillOpacity: 0.9)
+        .paperPanel(cornerRadius: 12, tint: Theme.grass)
     }
 }

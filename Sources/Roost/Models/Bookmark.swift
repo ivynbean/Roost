@@ -86,6 +86,7 @@ enum BookmarkCategory: String, Codable, CaseIterable, Identifiable {
     case travel = "Travel"
     case shopping = "Shopping"
     case media = "Media"
+    case screenshots = "Screenshots"
     case people = "People"
     case tools = "Tools"
 
@@ -108,6 +109,7 @@ enum BookmarkCategory: String, Codable, CaseIterable, Identifiable {
         case .travel: "airplane"
         case .shopping: "bag"
         case .media: "play.rectangle"
+        case .screenshots: "camera.viewfinder"
         case .people: "person.2"
         case .tools: "wrench.and.screwdriver"
         }
