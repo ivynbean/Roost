@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct NoteEditorView: View {
     @EnvironmentObject private var noteStore: NoteStore
     @EnvironmentObject private var bookmarkStore: BookmarkStore
+    @EnvironmentObject private var tagStore: TagStore
     let note: Note
 
     @State private var title: String
@@ -28,6 +29,7 @@ struct NoteEditorView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .onChange(of: title) { _, newValue in
                             noteStore.update(note.id) { $0.title = newValue }
+                            syncInlineTags(title: newValue, content: content)
                         }
 
                     metadataRow
@@ -49,6 +51,7 @@ struct NoteEditorView: View {
                             .frame(minHeight: 260)
                             .onChange(of: content) { _, newValue in
                                 noteStore.update(note.id) { $0.content = newValue }
+                                syncInlineTags(title: title, content: newValue)
                             }
                     }
                     .padding(10)
@@ -60,6 +63,13 @@ struct NoteEditorView: View {
                 }
                 .padding(16)
                 .paperPanel(cornerRadius: 4, tint: Theme.rose, fillOpacity: 0.64)
+
+                TagEditorView(
+                    tagIDs: note.tagIDs,
+                    onAdd: { tagID in noteStore.addTag(tagID, to: note.id) },
+                    onRemove: { tagID in noteStore.removeTag(tagID, from: note.id) }
+                )
+                .environmentObject(tagStore)
 
                 linkedBookmarksSection
             }
@@ -194,6 +204,9 @@ struct NoteEditorView: View {
             ForEach(noteStore.projects) { project in
                 Button {
                     noteStore.update(note.id) { $0.projectID = project.id }
+                    if let tagID = project.tagID {
+                        noteStore.addTag(tagID, to: note.id)
+                    }
                 } label: {
                     Label(project.name, systemImage: project.symbolName)
                 }
@@ -345,6 +358,12 @@ struct NoteEditorView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func syncInlineTags(title: String, content: String) {
+        for tagID in tagStore.tagIDs(in: "\(title)\n\(content)") {
+            noteStore.addTag(tagID, to: note.id)
+        }
     }
 }
 

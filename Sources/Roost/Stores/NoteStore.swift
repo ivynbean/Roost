@@ -58,6 +58,34 @@ final class NoteStore: ObservableObject {
         applySearch(notes.filter { $0.projectID == projectID })
     }
 
+    func notes(withTag tagID: UUID) -> [Note] {
+        applySearch(notes.filter { $0.tagIDs.contains(tagID) })
+    }
+
+    func childProjects(of parentID: UUID?) -> [Project] {
+        projects
+            .filter { $0.parentID == parentID }
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt < rhs.createdAt
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+    }
+
+    func descendantProjectIDs(of parentID: UUID) -> Set<UUID> {
+        var ids: Set<UUID> = [parentID]
+        var pending = [parentID]
+
+        while let id = pending.popLast() {
+            let children = projects.filter { $0.parentID == id }.map(\.id)
+            ids.formUnion(children)
+            pending.append(contentsOf: children)
+        }
+
+        return ids
+    }
+
     func noteCount(for selection: SidebarSelection) -> Int {
         switch selection {
         case .today: todayNotes.count
@@ -65,6 +93,7 @@ final class NoteStore: ObservableObject {
         case .tasks: taskNotes.count
         case .allNotes: allNotes.count
         case .project(let id): notes(inProject: id).count
+        case .tag(let id): notes(withTag: id).count
         case .collection: 0
         }
     }
@@ -76,6 +105,7 @@ final class NoteStore: ObservableObject {
         case .tasks: taskNotes
         case .allNotes: allNotes
         case .project(let id): notes(inProject: id)
+        case .tag(let id): notes(withTag: id)
         case .collection: []
         }
     }
@@ -91,8 +121,13 @@ final class NoteStore: ObservableObject {
     // MARK: - Note CRUD
 
     @discardableResult
-    func addNote(projectID: UUID? = nil, date: Date? = nil, isTask: Bool = false) -> Note {
-        let note = Note(projectID: projectID, date: date, isTask: isTask)
+    func addNote(projectID: UUID? = nil, tagIDs: [UUID] = [], date: Date? = nil, isTask: Bool = false) -> Note {
+        var note = Note(projectID: projectID, date: date, isTask: isTask, tagIDs: tagIDs)
+        if let projectID,
+           let projectTagID = project(for: projectID)?.tagID,
+           !note.tagIDs.contains(projectTagID) {
+            note.tagIDs.append(projectTagID)
+        }
         notes.insert(note, at: 0)
         selectedNoteID = note.id
         logger.info("Added note id=\(note.id.uuidString, privacy: .public)")
@@ -155,13 +190,28 @@ final class NoteStore: ObservableObject {
         }
     }
 
+    func addTag(_ tagID: UUID, to noteID: Note.ID) {
+        update(noteID) { note in
+            guard !note.tagIDs.contains(tagID) else { return }
+            note.tagIDs.append(tagID)
+        }
+    }
+
+    func removeTag(_ tagID: UUID, from noteID: Note.ID) {
+        update(noteID) { note in
+            note.tagIDs.removeAll { $0 == tagID }
+        }
+    }
+
     // MARK: - Project CRUD
 
     @discardableResult
-    func addProject(name: String) -> Project {
+    func addProject(name: String, parentID: UUID? = nil, tagID: UUID? = nil) -> Project {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let project = Project(
             name: trimmed.isEmpty ? "New Project" : trimmed,
+            parentID: parentID,
+            tagID: tagID,
             colorIndex: projects.count
         )
         projects.append(project)
@@ -176,11 +226,28 @@ final class NoteStore: ObservableObject {
         projects[index].name = trimmed
     }
 
-    func deleteProject(_ id: Project.ID) {
-        projects.removeAll { $0.id == id }
+    func setProjectTagID(_ id: Project.ID, tagID: UUID) {
+        guard let index = projects.firstIndex(where: { $0.id == id }),
+              projects[index].tagID != tagID else { return }
+        projects[index].tagID = tagID
+    }
+
+    func addProjectTag(_ tagID: UUID, toProject projectID: UUID) {
         notes = notes.map { note in
             var note = note
-            if note.projectID == id {
+            if note.projectID == projectID, !note.tagIDs.contains(tagID) {
+                note.tagIDs.append(tagID)
+            }
+            return note
+        }
+    }
+
+    func deleteProject(_ id: Project.ID) {
+        let deletedIDs = descendantProjectIDs(of: id)
+        projects.removeAll { deletedIDs.contains($0.id) }
+        notes = notes.map { note in
+            var note = note
+            if let projectID = note.projectID, deletedIDs.contains(projectID) {
                 note.projectID = nil
             }
             return note

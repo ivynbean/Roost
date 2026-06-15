@@ -6,6 +6,7 @@ struct RoostApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = BookmarkStore()
     @StateObject private var noteStore = NoteStore()
+    @StateObject private var tagStore = TagStore()
     @StateObject private var navigation = NavigationModel()
     @StateObject private var calendarService = CalendarService()
     @StateObject private var screenshotWatcher = ScreenshotWatcher()
@@ -16,6 +17,7 @@ struct RoostApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(noteStore)
+                .environmentObject(tagStore)
                 .environmentObject(navigation)
                 .environmentObject(calendarService)
                 .overlay {
@@ -39,6 +41,7 @@ struct RoostApp: App {
             BucketWindowView()
                 .environmentObject(store)
                 .environmentObject(noteStore)
+                .environmentObject(tagStore)
                 .environmentObject(navigation)
                 .environmentObject(calendarService)
                 .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)

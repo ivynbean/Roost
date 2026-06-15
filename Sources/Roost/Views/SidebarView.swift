@@ -3,10 +3,14 @@ import SwiftUI
 struct SidebarView: View {
     @EnvironmentObject private var store: BookmarkStore
     @EnvironmentObject private var noteStore: NoteStore
+    @EnvironmentObject private var tagStore: TagStore
     @EnvironmentObject private var navigation: NavigationModel
     @State private var isAddingProject = false
+    @State private var newProjectParentID: UUID?
     @State private var newProjectName = ""
+    @State private var expandedProjectIDs: Set<UUID> = []
     @AppStorage("roost.sidebar.projectsExpanded") private var projectsExpanded = true
+    @AppStorage("roost.sidebar.tagsExpanded") private var tagsExpanded = true
     @AppStorage("roost.sidebar.collectionsExpanded") private var collectionsExpanded = true
 
     var body: some View {
@@ -75,29 +79,36 @@ struct SidebarView: View {
                         .padding(.trailing, 8)
 
                     CollapsibleHeader(title: "Projects", isExpanded: $projectsExpanded) {
-                        newProjectName = ""
-                        isAddingProject = true
+                        startAddingProject(parentID: nil)
                     }
 
                     if projectsExpanded {
-                        ForEach(noteStore.projects) { project in
-                            ProjectSidebarRow(
-                                projectID: project.id,
-                                title: project.name,
-                                count: noteStore.notes(inProject: project.id).count,
-                                isSelected: navigation.selection == .project(project.id),
-                                tint: Theme.projectColor(project.colorIndex),
+                        ForEach(noteStore.childProjects(of: nil)) { project in
+                            ProjectSidebarBranch(
+                                project: project,
+                                depth: 0,
+                                expandedProjectIDs: $expandedProjectIDs,
+                                onAddChild: startAddingProject
+                            )
+                        }
+                    }
+
+                    if !tagStore.tags.isEmpty {
+                        CollapsibleHeader(title: "Tags", isExpanded: $tagsExpanded)
+                            .padding(.top, 8)
+                    }
+
+                    if tagsExpanded {
+                        ForEach(tagStore.tags.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { tag in
+                            TagSidebarRow(
+                                tag: tag,
+                                count: tagCount(for: tag.id),
+                                isSelected: navigation.selection == .tag(tag.id),
                                 onRename: { newName in
-                                    noteStore.renameProject(project.id, to: newName)
-                                },
-                                onDelete: {
-                                    if navigation.selection == .project(project.id) {
-                                        navigation.selection = .allNotes
-                                    }
-                                    noteStore.deleteProject(project.id)
+                                    tagStore.rename(tag.id, to: newName)
                                 }
                             ) {
-                                navigation.selection = .project(project.id)
+                                navigation.selection = .tag(tag.id)
                             }
                         }
                     }
@@ -131,12 +142,32 @@ struct SidebarView: View {
         .alert("New Project", isPresented: $isAddingProject) {
             TextField("Project name", text: $newProjectName)
             Button("Create") {
-                let project = noteStore.addProject(name: newProjectName)
+                let tag = tagStore.projectTag(named: newProjectName.isEmpty ? "New Project" : newProjectName)
+                let project = noteStore.addProject(name: newProjectName, parentID: newProjectParentID, tagID: tag?.id)
+                if let parentID = newProjectParentID {
+                    expandedProjectIDs.insert(parentID)
+                }
                 navigation.selection = .project(project.id)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Group your notes by what you're working on.")
+            Text(newProjectParentID == nil ? "Group your notes by what you're working on." : "Create a folder inside this project.")
+        }
+        .onAppear(perform: ensureProjectTags)
+    }
+
+    private func startAddingProject(parentID: UUID?) {
+        newProjectName = ""
+        newProjectParentID = parentID
+        isAddingProject = true
+    }
+
+    private func ensureProjectTags() {
+        for project in noteStore.projects where project.tagID == nil {
+            guard let tag = tagStore.projectTag(named: project.name) else { continue }
+            noteStore.setProjectTagID(project.id, tagID: tag.id)
+            noteStore.addProjectTag(tag.id, toProject: project.id)
+            store.addProjectTag(tag.id, toProject: project.id)
         }
     }
 
@@ -150,6 +181,10 @@ struct SidebarView: View {
 
     private func count(for category: BookmarkCategory) -> Int {
         store.bookmarks(in: category).count
+    }
+
+    private func tagCount(for tagID: UUID) -> Int {
+        noteStore.notes(withTag: tagID).count + store.bookmarks(withTag: tagID).count
     }
 
     private var todayCount: Int {
@@ -275,6 +310,116 @@ private struct SidebarRow: View {
     }
 }
 
+private struct TagSidebarRow: View {
+    let tag: Tag
+    let count: Int
+    let isSelected: Bool
+    let onRename: (String) -> Void
+    let action: () -> Void
+    @State private var isHovered = false
+    @State private var isRenaming = false
+    @State private var draftName = ""
+    @FocusState private var isNameFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: action) {
+                HStack(spacing: 10) {
+                    Image(systemName: "tag")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                        .frame(width: 16)
+
+                    if isRenaming {
+                        TextField("", text: $draftName)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .focused($isNameFocused)
+                            .onSubmit(commitRename)
+                            .onExitCommand(perform: cancelRename)
+                    } else {
+                        Text("#\(tag.name)")
+                            .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if count > 0 && !isHovered && !isRenaming {
+                        Text("\(count)")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                            .monospacedDigit()
+                    }
+                }
+                .padding(.horizontal, 7)
+                .frame(height: 28)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .background {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(isSelected ? Theme.selected : Color.clear)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isRenaming)
+
+            if isHovered && !isRenaming {
+                Button(action: beginRename) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textTertiary)
+                .help("Rename Tag")
+                .padding(.trailing, 8)
+            }
+        }
+        .onHover { isHovered = $0 }
+        .onAppear {
+            if draftName.isEmpty {
+                draftName = tag.name
+            }
+        }
+        .onChange(of: tag.name) { _, newName in
+            if !isRenaming {
+                draftName = newName
+            }
+        }
+        .onChange(of: isNameFocused) { _, focused in
+            if isRenaming && !focused {
+                commitRename()
+            }
+        }
+    }
+
+    private func beginRename() {
+        draftName = tag.name
+        isRenaming = true
+        DispatchQueue.main.async {
+            isNameFocused = true
+        }
+    }
+
+    private func commitRename() {
+        let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed != tag.name {
+            onRename(trimmed)
+        } else {
+            draftName = tag.name
+        }
+        isRenaming = false
+    }
+
+    private func cancelRename() {
+        draftName = tag.name
+        isRenaming = false
+    }
+}
+
 private struct CollectionRow: View {
     let category: BookmarkCategory
     let count: Int
@@ -347,15 +492,105 @@ private struct CollectionRow: View {
     }
 }
 
+private struct ProjectSidebarBranch: View {
+    @EnvironmentObject private var store: BookmarkStore
+    @EnvironmentObject private var noteStore: NoteStore
+    @EnvironmentObject private var tagStore: TagStore
+    @EnvironmentObject private var navigation: NavigationModel
+    let project: Project
+    let depth: Int
+    @Binding var expandedProjectIDs: Set<UUID>
+    let onAddChild: (UUID?) -> Void
+
+    private var children: [Project] {
+        noteStore.childProjects(of: project.id)
+    }
+
+    private var isExpanded: Bool {
+        expandedProjectIDs.contains(project.id)
+    }
+
+    private var projectCount: Int {
+        noteStore.notes(inProject: project.id).count + store.bookmarks(inProject: project.id).count
+    }
+
+    var body: some View {
+        ProjectSidebarRow(
+            projectID: project.id,
+            projectTagID: project.tagID,
+            title: project.name,
+            count: projectCount,
+            depth: depth,
+            hasChildren: !children.isEmpty,
+            isExpanded: isExpanded,
+            isSelected: navigation.selection == .project(project.id),
+            tint: Theme.projectColor(project.colorIndex),
+            onToggleExpansion: toggleExpansion,
+            onAddChild: {
+                expandedProjectIDs.insert(project.id)
+                onAddChild(project.id)
+            },
+            onRename: { newName in
+                if let tagID = project.tagID {
+                    tagStore.rename(tagID, to: newName)
+                } else if let tag = tagStore.projectTag(named: newName) {
+                    noteStore.setProjectTagID(project.id, tagID: tag.id)
+                    noteStore.addProjectTag(tag.id, toProject: project.id)
+                    store.addProjectTag(tag.id, toProject: project.id)
+                }
+                noteStore.renameProject(project.id, to: newName)
+            },
+            onDelete: deleteProject
+        ) {
+            navigation.selection = .project(project.id)
+        }
+
+        if isExpanded {
+            ForEach(children) { child in
+                ProjectSidebarBranch(
+                    project: child,
+                    depth: depth + 1,
+                    expandedProjectIDs: $expandedProjectIDs,
+                    onAddChild: onAddChild
+                )
+            }
+        }
+    }
+
+    private func toggleExpansion() {
+        if isExpanded {
+            expandedProjectIDs.remove(project.id)
+        } else {
+            expandedProjectIDs.insert(project.id)
+        }
+    }
+
+    private func deleteProject() {
+        let deletedIDs = noteStore.descendantProjectIDs(of: project.id)
+        if case .project(let selectedID) = navigation.selection, deletedIDs.contains(selectedID) {
+            navigation.selection = .allNotes
+        }
+        store.clearProjects(deletedIDs)
+        noteStore.deleteProject(project.id)
+        expandedProjectIDs.subtract(deletedIDs)
+    }
+}
+
 private struct ProjectSidebarRow: View {
     @EnvironmentObject private var store: BookmarkStore
     @EnvironmentObject private var noteStore: NoteStore
     @EnvironmentObject private var navigation: NavigationModel
     let projectID: UUID
+    let projectTagID: UUID?
     let title: String
     let count: Int
+    let depth: Int
+    let hasChildren: Bool
+    let isExpanded: Bool
     let isSelected: Bool
     let tint: Color
+    let onToggleExpansion: () -> Void
+    let onAddChild: () -> Void
     let onRename: (String) -> Void
     let onDelete: () -> Void
     let action: () -> Void
@@ -367,11 +602,27 @@ private struct ProjectSidebarRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            if depth > 0 {
+                Spacer()
+                    .frame(width: CGFloat(depth) * 14)
+            }
+
+            Button(action: onToggleExpansion) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .foregroundStyle(hasChildren ? Theme.textTertiary : Color.clear)
+                    .frame(width: 12, height: 18)
+            }
+            .buttonStyle(.plain)
+            .disabled(!hasChildren)
+
             Button(action: action) {
                 HStack(spacing: 10) {
-                    Circle()
-                        .fill(tint)
-                        .frame(width: 8, height: 8)
+                    Image(systemName: hasChildren ? "folder" : "folder")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(tint)
+                        .frame(width: 16)
 
                     if isRenaming {
                         TextField("", text: $draftTitle)
@@ -412,6 +663,14 @@ private struct ProjectSidebarRow: View {
 
             if isHovered && !isRenaming {
                 HStack(spacing: 6) {
+                    Button(action: onAddChild) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.textTertiary)
+                    .help("New Subfolder")
+
                     Button(action: beginRename) {
                         Image(systemName: "pencil")
                             .font(.system(size: 10, weight: .semibold))
@@ -480,10 +739,10 @@ private struct ProjectSidebarRow: View {
         }
 
         return BookmarkDropHandler.handle(providers, store: store) { bookmark in
-            let note = noteStore.addLinkedBookmarkNote(for: bookmark, to: projectID)
+            store.assign(bookmark, toProject: projectID, projectTagID: projectTagID)
             navigation.selection = .project(projectID)
-            noteStore.selectedNoteID = note.id
-            store.selectedBookmarkID = nil
+            noteStore.selectedNoteID = nil
+            store.selectedBookmarkID = bookmark.id
         }
     }
 
@@ -499,6 +758,9 @@ private struct ProjectSidebarRow: View {
             DispatchQueue.main.async {
                 if noteStore.notes.contains(where: { $0.id == id }) {
                     noteStore.update(id) { $0.projectID = projectID }
+                    if let projectTagID {
+                        noteStore.addTag(projectTagID, to: id)
+                    }
                     navigation.selection = .project(projectID)
                     noteStore.selectedNoteID = id
                     store.selectedBookmarkID = nil
@@ -506,10 +768,10 @@ private struct ProjectSidebarRow: View {
                 }
 
                 guard let bookmark = store.bookmarks.first(where: { $0.id == id }) else { return }
-                let note = noteStore.addLinkedBookmarkNote(for: bookmark, to: projectID)
+                store.assign(bookmark, toProject: projectID, projectTagID: projectTagID)
                 navigation.selection = .project(projectID)
-                noteStore.selectedNoteID = note.id
-                store.selectedBookmarkID = nil
+                noteStore.selectedNoteID = nil
+                store.selectedBookmarkID = bookmark.id
             }
         }
 

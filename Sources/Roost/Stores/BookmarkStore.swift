@@ -61,21 +61,55 @@ final class BookmarkStore: ObservableObject {
         }
     }
 
+    func bookmarks(inProject projectID: UUID) -> [Bookmark] {
+        bookmarks
+            .filter { $0.projectID == projectID }
+            .filter { bookmark in
+                guard !searchText.isEmpty else { return true }
+                return bookmark.displayTitle.localizedCaseInsensitiveContains(searchText)
+                    || bookmark.displayLocation.localizedCaseInsensitiveContains(searchText)
+                    || bookmark.summary.localizedCaseInsensitiveContains(searchText)
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func bookmarks(withTag tagID: UUID) -> [Bookmark] {
+        bookmarks
+            .filter { $0.tagIDs.contains(tagID) }
+            .filter { bookmark in
+                guard !searchText.isEmpty else { return true }
+                return bookmark.displayTitle.localizedCaseInsensitiveContains(searchText)
+                    || bookmark.displayLocation.localizedCaseInsensitiveContains(searchText)
+                    || bookmark.summary.localizedCaseInsensitiveContains(searchText)
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
     @discardableResult
-    func add(rawValue: String) -> Bookmark? {
+    func add(rawValue: String, projectID: UUID? = nil, projectTagID: UUID? = nil) -> Bookmark? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
         if let internalID = UUID(uuidString: trimmed),
            let existing = bookmarks.first(where: { $0.id == internalID }) {
+            if let projectID {
+                assign(existing, toProject: projectID, projectTagID: projectTagID)
+            }
             selectedBookmarkID = existing.id
             selectedCategory = existing.displayCategory
             lastImportMessage = "Already in your roost: \(existing.displayTitle)"
             return existing
         }
 
-        let bookmark = sorter.bookmark(from: trimmed)
+        var bookmark = sorter.bookmark(from: trimmed)
+        bookmark.projectID = projectID
+        if let projectTagID {
+            bookmark.tagIDs.append(projectTagID)
+        }
         if let existing = existingBookmark(matching: bookmark.location) {
+            if let projectID {
+                assign(existing, toProject: projectID, projectTagID: projectTagID)
+            }
             selectedBookmarkID = existing.id
             selectedCategory = existing.displayCategory
             lastImportMessage = "Already in your roost: \(existing.displayTitle)"
@@ -111,11 +145,11 @@ final class BookmarkStore: ObservableObject {
     }
 
     @discardableResult
-    func add(url: URL) -> Bookmark? {
+    func add(url: URL, projectID: UUID? = nil, projectTagID: UUID? = nil) -> Bookmark? {
         if url.isFileURL {
-            return addFile(url)
+            return addFile(url, projectID: projectID, projectTagID: projectTagID)
         } else {
-            return add(rawValue: url.absoluteString)
+            return add(rawValue: url.absoluteString, projectID: projectID, projectTagID: projectTagID)
         }
     }
 
@@ -135,6 +169,42 @@ final class BookmarkStore: ObservableObject {
         guard let bookmark = bookmarks.first(where: { $0.id == bookmarkID }) else { return }
         move(bookmark, to: category)
         selectedBookmarkID = bookmarkID
+    }
+
+    func assign(_ bookmark: Bookmark, toProject projectID: UUID?, projectTagID: UUID? = nil) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) else { return }
+        bookmarks[index].projectID = projectID
+        if let projectTagID, !bookmarks[index].tagIDs.contains(projectTagID) {
+            bookmarks[index].tagIDs.append(projectTagID)
+        }
+        selectedBookmarkID = bookmark.id
+        logger.info("Assigned bookmark id=\(bookmark.id.uuidString, privacy: .public) project=\(projectID?.uuidString ?? "none", privacy: .public)")
+    }
+
+    func assign(bookmarkID: Bookmark.ID, toProject projectID: UUID?, projectTagID: UUID? = nil) {
+        guard let bookmark = bookmarks.first(where: { $0.id == bookmarkID }) else { return }
+        assign(bookmark, toProject: projectID, projectTagID: projectTagID)
+    }
+
+    func clearProjects(_ projectIDs: Set<UUID>) {
+        guard !projectIDs.isEmpty else { return }
+        bookmarks = bookmarks.map { bookmark in
+            var bookmark = bookmark
+            if let projectID = bookmark.projectID, projectIDs.contains(projectID) {
+                bookmark.projectID = nil
+            }
+            return bookmark
+        }
+    }
+
+    func addProjectTag(_ tagID: UUID, toProject projectID: UUID) {
+        bookmarks = bookmarks.map { bookmark in
+            var bookmark = bookmark
+            if bookmark.projectID == projectID, !bookmark.tagIDs.contains(tagID) {
+                bookmark.tagIDs.append(tagID)
+            }
+            return bookmark
+        }
     }
 
     func toggleImportant(_ bookmark: Bookmark) {
@@ -257,13 +327,33 @@ final class BookmarkStore: ObservableObject {
         bookmarks[index].summary = summary
     }
 
+    func updateNote(_ bookmarkID: Bookmark.ID, note: String) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmarkID }),
+              bookmarks[index].note != note else { return }
+        bookmarks[index].note = note
+    }
+
+    func addTag(_ tagID: UUID, to bookmarkID: Bookmark.ID) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmarkID }),
+              !bookmarks[index].tagIDs.contains(tagID) else { return }
+        bookmarks[index].tagIDs.append(tagID)
+    }
+
+    func removeTag(_ tagID: UUID, from bookmarkID: Bookmark.ID) {
+        guard let index = bookmarks.firstIndex(where: { $0.id == bookmarkID }) else { return }
+        bookmarks[index].tagIDs.removeAll { $0 == tagID }
+    }
+
     private func existingBookmark(matching location: String) -> Bookmark? {
         bookmarks.first { $0.location == location }
     }
 
     @discardableResult
-    private func addFile(_ url: URL) -> Bookmark {
+    private func addFile(_ url: URL, projectID: UUID? = nil, projectTagID: UUID? = nil) -> Bookmark {
         if let existing = existingBookmark(matching: url.path) {
+            if let projectID {
+                assign(existing, toProject: projectID, projectTagID: projectTagID)
+            }
             selectedBookmarkID = existing.id
             selectedCategory = existing.displayCategory
             lastImportMessage = "Already in your roost: \(existing.displayTitle)"
@@ -275,6 +365,8 @@ final class BookmarkStore: ObservableObject {
             location: url.path,
             kind: .file,
             category: .docs,
+            projectID: projectID,
+            tagIDs: projectTagID.map { [$0] } ?? [],
             summary: url.path
         )
         bookmarks.insert(bookmark, at: 0)

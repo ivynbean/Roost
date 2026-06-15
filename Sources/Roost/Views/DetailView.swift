@@ -23,6 +23,7 @@ struct DetailView: View {
 
 private struct BookmarkDetail: View {
     @EnvironmentObject private var store: BookmarkStore
+    @EnvironmentObject private var tagStore: TagStore
     let bookmark: Bookmark
 
     var body: some View {
@@ -78,6 +79,15 @@ private struct BookmarkDetail: View {
                         Spacer()
                     }
                 }
+
+                TagEditorView(
+                    tagIDs: bookmark.tagIDs,
+                    onAdd: { tagID in store.addTag(tagID, to: bookmark.id) },
+                    onRemove: { tagID in store.removeTag(tagID, from: bookmark.id) }
+                )
+                .environmentObject(tagStore)
+
+                BookmarkNoteEditor(bookmark: bookmark)
 
                 sections
             }
@@ -199,6 +209,54 @@ private struct DetailPinButton: View {
                 .stroke(isPinned ? Theme.gold.opacity(0.45) : Theme.cardStroke, lineWidth: 1)
         }
         .help(isPinned ? "Unpin" : "Pin")
+    }
+}
+
+private struct BookmarkNoteEditor: View {
+    @EnvironmentObject private var store: BookmarkStore
+    @EnvironmentObject private var tagStore: TagStore
+    let bookmark: Bookmark
+    @State private var noteText: String
+
+    init(bookmark: Bookmark) {
+        self.bookmark = bookmark
+        _noteText = State(initialValue: bookmark.note)
+    }
+
+    var body: some View {
+        DetailSection(title: "Note") {
+            ZStack(alignment: .topLeading) {
+                if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Write a note about this item…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+
+                TextEditor(text: $noteText)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 96)
+                    .onChange(of: noteText) { _, newValue in
+                        store.updateNote(bookmark.id, note: newValue)
+                        for tagID in tagStore.tagIDs(in: newValue) {
+                            store.addTag(tagID, to: bookmark.id)
+                        }
+                    }
+            }
+            .padding(10)
+            .background(Theme.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Theme.cardStroke, lineWidth: 1)
+            }
+        }
+        .onChange(of: bookmark.id) { _, _ in
+            noteText = bookmark.note
+        }
     }
 }
 
