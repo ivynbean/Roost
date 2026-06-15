@@ -3,12 +3,14 @@ import SwiftUI
 struct NotesListView: View {
     @EnvironmentObject private var noteStore: NoteStore
     @EnvironmentObject private var bookmarkStore: BookmarkStore
+    @EnvironmentObject private var tagStore: TagStore
     @EnvironmentObject private var navigation: NavigationModel
     @EnvironmentObject private var calendarService: CalendarService
     @AppStorage("roost.showCalendarInToday") private var showCalendar = true
     @State private var notesExpanded = true
     @State private var savedExpanded = true
     @State private var collapsedDays: Set<Date> = []
+    @State private var isDropTargeted = false
 
     private var showsCalendarStrip: Bool {
         navigation.selection == .today && showCalendar
@@ -36,7 +38,7 @@ struct NotesListView: View {
                         .padding(.bottom, 8)
                 }
 
-                if groupedNotes.isEmpty {
+                if groupedNotes.isEmpty && contextualBookmarks.isEmpty {
                     TimelineSectionHeader(
                         title: listTitle,
                         count: 0,
@@ -52,6 +54,24 @@ struct NotesListView: View {
                     }
                     .padding(.top, 8)
                 } else {
+                    if !contextualBookmarks.isEmpty {
+                        TimelineSectionHeader(
+                            title: bookmarkSectionTitle,
+                            count: contextualBookmarks.count,
+                            isExpanded: true
+                        ) {}
+
+                        ForEach(contextualBookmarks) { bookmark in
+                            TodayBookmarkRow(
+                                bookmark: bookmark,
+                                isSelected: bookmark.id == bookmarkStore.selectedBookmarkID
+                            )
+                            .onDrag {
+                                NSItemProvider(object: bookmark.id.uuidString as NSString)
+                            }
+                        }
+                    }
+
                     ForEach(groupedNotes, id: \.day) { group in
                         Section {
                             if !collapsedDays.contains(group.day) {
@@ -79,6 +99,9 @@ struct NotesListView: View {
                                                 ForEach(noteStore.projects) { project in
                                                     Button(project.name) {
                                                         noteStore.update(note.id) { $0.projectID = project.id }
+                                                        if let tagID = project.tagID {
+                                                            noteStore.addTag(tagID, to: note.id)
+                                                        }
                                                     }
                                                 }
                                                 Button("No Project") {
@@ -109,6 +132,17 @@ struct NotesListView: View {
         }
         .background(PaintedBackdrop())
         .navigationTitle(listTitle)
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Theme.gold, lineWidth: 2)
+                    .padding(8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: BookmarkDropHandler.acceptedTypes, isTargeted: $isDropTargeted) { providers in
+            handleDrop(providers)
+        }
     }
 
     private var todayNotes: [Note] {
@@ -144,6 +178,7 @@ struct NotesListView: View {
         case .tasks: "Tasks"
         case .allNotes: "All Notes"
         case .project(let id): noteStore.project(for: id)?.name ?? "Project"
+        case .tag(let id): tagStore.tag(for: id).map { "#\($0.name)" } ?? "Tag"
         case .collection(let category): category.rawValue
         }
     }
@@ -154,6 +189,24 @@ struct NotesListView: View {
         let groups = Dictionary(grouping: visible) { calendar.startOfDay(for: $0.timelineDate) }
         return groups.keys.sorted(by: >).map { day in
             (day, groups[day]!.sorted { $0.updatedAt > $1.updatedAt })
+        }
+    }
+
+    private var contextualBookmarks: [Bookmark] {
+        switch navigation.selection {
+        case .project(let projectID):
+            return bookmarkStore.bookmarks(inProject: projectID)
+        case .tag(let tagID):
+            return bookmarkStore.bookmarks(withTag: tagID)
+        default:
+            return []
+        }
+    }
+
+    private var bookmarkSectionTitle: String {
+        switch navigation.selection {
+        case .tag: "Saved Items"
+        default: "Links"
         }
     }
 
@@ -171,14 +224,41 @@ struct NotesListView: View {
         if case .project(let id) = navigation.selection {
             projectID = id
         }
+        var tagID: UUID?
+        if case .tag(let id) = navigation.selection {
+            tagID = id
+        }
         let date: Date? = navigation.selection == .today ? Date() : nil
         let note = noteStore.addNote(
             projectID: projectID,
             date: date,
             isTask: navigation.selection == .tasks
         )
+        if let tagID {
+            noteStore.addTag(tagID, to: note.id)
+        }
         if navigation.selection == .agenda {
             noteStore.toggleAgenda(note.id)
+        }
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        switch navigation.selection {
+        case .project(let projectID):
+            return BookmarkDropHandler.handle(providers, store: bookmarkStore) { bookmark in
+                bookmarkStore.assign(
+                    bookmark,
+                    toProject: projectID,
+                    projectTagID: noteStore.project(for: projectID)?.tagID
+                )
+                noteStore.selectedNoteID = nil
+                bookmarkStore.selectedBookmarkID = bookmark.id
+                navigation.selection = .project(projectID)
+            }
+        case .today:
+            return BookmarkDropHandler.handle(providers, store: bookmarkStore)
+        default:
+            return BookmarkDropHandler.handle(providers, store: bookmarkStore)
         }
     }
 
@@ -188,6 +268,7 @@ struct NotesListView: View {
         case .tasks: "No tasks yet"
         case .allNotes: "No notes yet"
         case .project(let id): "Nothing in \(noteStore.project(for: id)?.name ?? "this project")"
+        case .tag(let id): "Nothing tagged \(tagStore.tag(for: id).map { "#\($0.name)" } ?? "yet")"
         default: "No notes yet"
         }
     }
@@ -197,6 +278,7 @@ struct NotesListView: View {
         case .agenda: "Pin a note to keep it on your agenda."
         case .tasks: "Create a task or turn any note into one."
         case .project: "Drop a link, file, or note here to start collecting work."
+        case .tag: "Add this tag to notes, links, files, or screenshots to see them here."
         default: "Use the capture bar above or start a note."
         }
     }
@@ -206,6 +288,7 @@ struct NotesListView: View {
         case .agenda: "pin"
         case .tasks: "checkmark.circle"
         case .project: "folder"
+        case .tag: "tag"
         default: "square.and.pencil"
         }
     }

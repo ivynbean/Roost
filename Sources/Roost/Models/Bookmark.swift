@@ -6,8 +6,11 @@ struct Bookmark: Identifiable, Codable, Equatable {
     var location: String
     var kind: BookmarkKind
     var category: BookmarkCategory
+    var projectID: UUID?
+    var tagIDs: [UUID]
     var isImportant: Bool
     var summary: String
+    var note: String
     var createdAt: Date
     var lastOpenedAt: Date?
 
@@ -17,8 +20,11 @@ struct Bookmark: Identifiable, Codable, Equatable {
         case location
         case kind
         case category
+        case projectID
+        case tagIDs
         case isImportant
         case summary
+        case note
         case createdAt
         case lastOpenedAt
     }
@@ -29,8 +35,11 @@ struct Bookmark: Identifiable, Codable, Equatable {
         location: String,
         kind: BookmarkKind,
         category: BookmarkCategory = .readLater,
+        projectID: UUID? = nil,
+        tagIDs: [UUID] = [],
         isImportant: Bool = false,
         summary: String = "",
+        note: String = "",
         createdAt: Date = Date(),
         lastOpenedAt: Date? = nil
     ) {
@@ -39,8 +48,11 @@ struct Bookmark: Identifiable, Codable, Equatable {
         self.location = location
         self.kind = kind
         self.category = category.normalized
+        self.projectID = projectID
+        self.tagIDs = tagIDs
         self.isImportant = isImportant || category == .important
         self.summary = summary
+        self.note = note
         self.createdAt = createdAt
         self.lastOpenedAt = lastOpenedAt
     }
@@ -53,8 +65,11 @@ struct Bookmark: Identifiable, Codable, Equatable {
         kind = try container.decode(BookmarkKind.self, forKey: .kind)
         let decodedCategory = try container.decode(BookmarkCategory.self, forKey: .category)
         category = decodedCategory.normalized
+        projectID = try container.decodeIfPresent(UUID.self, forKey: .projectID)
+        tagIDs = try container.decodeIfPresent([UUID].self, forKey: .tagIDs) ?? []
         isImportant = (try container.decodeIfPresent(Bool.self, forKey: .isImportant) ?? false) || decodedCategory == .important
         summary = try container.decode(String.self, forKey: .summary)
+        note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
     }

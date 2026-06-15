@@ -146,8 +146,16 @@ private struct QuickCaptureBar: View {
         guard !trimmed.isEmpty else { return }
 
         if shouldCaptureAsBookmark(trimmed) || !navigation.selection.isNotesDomain {
-            if store.add(rawValue: trimmed) != nil {
+            var projectID: UUID?
+            var projectTagID: UUID?
+            if case .project(let id) = navigation.selection {
+                projectID = id
+                projectTagID = noteStore.project(for: id)?.tagID
+            }
+
+            if let bookmark = store.add(rawValue: trimmed, projectID: projectID, projectTagID: projectTagID) {
                 noteStore.selectedNoteID = nil
+                store.selectedBookmarkID = bookmark.id
             }
             if !navigation.selection.isNotesDomain {
                 navigation.selection = .collection(store.selectedCategory)
@@ -158,6 +166,10 @@ private struct QuickCaptureBar: View {
             if case .project(let id) = navigation.selection {
                 projectID = id
             }
+            var tagIDs: [UUID] = []
+            if case .tag(let id) = navigation.selection {
+                tagIDs = [id]
+            }
             let note = noteStore.addNote(
                 projectID: projectID,
                 date: navigation.selection == .today ? Date() : nil,
@@ -166,6 +178,7 @@ private struct QuickCaptureBar: View {
             noteStore.update(note.id) { draft in
                 draft.title = trimmed.firstLine(maxLength: 80)
                 draft.content = trimmed
+                draft.tagIDs = tagIDs
             }
         }
 

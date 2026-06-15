@@ -6,6 +6,7 @@ enum SidebarSelection: Hashable {
     case tasks
     case allNotes
     case project(UUID)
+    case tag(UUID)
     case collection(BookmarkCategory)
 
     var isNotesDomain: Bool {

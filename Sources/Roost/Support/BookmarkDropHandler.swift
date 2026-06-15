@@ -20,6 +20,10 @@ enum BookmarkDropHandler {
         store: BookmarkStore,
         onCapture: ((Bookmark) -> Void)? = nil
     ) -> Bool {
+        if captureURLsFromDragPasteboard(store: store, onCapture: onCapture) {
+            return true
+        }
+
         var handled = false
 
         for provider in providers {
@@ -39,6 +43,46 @@ enum BookmarkDropHandler {
         }
 
         return handled
+    }
+
+    private static func captureURLsFromDragPasteboard(
+        store: BookmarkStore,
+        onCapture: ((Bookmark) -> Void)?
+    ) -> Bool {
+        let pasteboard = NSPasteboard(name: .drag)
+
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !urls.isEmpty {
+            logger.info("Drop recovered \(urls.count) URL(s) from the live drag pasteboard")
+            for url in urls {
+                deliver(url: url, error: nil, store: store, onCapture: onCapture)
+            }
+            return true
+        }
+
+        for type in [NSPasteboard.PasteboardType.URL, .fileURL, .string] {
+            if let string = pasteboard.string(forType: type).map(sanitize),
+               let url = urlFromDroppedString(string) {
+                logger.info("Drop recovered URL from live drag pasteboard type=\(type.rawValue, privacy: .public)")
+                deliver(url: url, error: nil, store: store, onCapture: onCapture)
+                return true
+            }
+
+            if let data = pasteboard.data(forType: type),
+               let url = url(fromLoadedItem: data as NSData) {
+                logger.info("Drop recovered URL data from live drag pasteboard type=\(type.rawValue, privacy: .public)")
+                deliver(url: url, error: nil, store: store, onCapture: onCapture)
+                return true
+            }
+        }
+
+        guard let string = pasteboard.string(forType: .string).map(sanitize),
+              let url = urlFromDroppedString(string) else {
+            return false
+        }
+
+        logger.info("Drop recovered URL text from the live drag pasteboard")
+        deliver(url: url, error: nil, store: store, onCapture: onCapture)
+        return true
     }
 
     private static func captureFromDragPasteboard(
@@ -176,6 +220,34 @@ enum BookmarkDropHandler {
             return URL(string: sanitize(string))
         }
         return nil
+    }
+
+    private static func urlFromDroppedString(_ string: String) -> URL? {
+        if let url = URL(string: string),
+           let scheme = url.scheme?.lowercased(),
+           ["http", "https", "file"].contains(scheme) {
+            return url
+        }
+
+        let expandedPath = NSString(string: string).expandingTildeInPath
+        if expandedPath.hasPrefix("/"), FileManager.default.fileExists(atPath: expandedPath) {
+            return URL(fileURLWithPath: expandedPath)
+        }
+
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue),
+              let match = detector.firstMatch(in: string, range: NSRange(string.startIndex..., in: string)),
+              match.range.location != NSNotFound,
+              let range = Range(match.range, in: string) else {
+            return nil
+        }
+
+        let candidate = String(string[range])
+        guard let url = URL(string: candidate),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https", "file"].contains(scheme) else {
+            return nil
+        }
+        return url
     }
 
     private static func string(fromLoadedItem item: (any NSSecureCoding)?) -> String? {
