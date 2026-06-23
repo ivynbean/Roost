@@ -25,6 +25,12 @@ private struct BookmarkDetail: View {
     @EnvironmentObject private var store: BookmarkStore
     @EnvironmentObject private var tagStore: TagStore
     let bookmark: Bookmark
+    @State private var title: String
+
+    init(bookmark: Bookmark) {
+        self.bookmark = bookmark
+        _title = State(initialValue: bookmark.title)
+    }
 
     var body: some View {
         ScrollView {
@@ -37,11 +43,14 @@ private struct BookmarkDetail: View {
                         .padding(.vertical, 6)
                         .background(Theme.moss, in: Capsule())
 
-                    Text(bookmark.displayTitle)
+                    TextField("", text: $title, axis: .vertical)
+                        .textFieldStyle(.plain)
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(3)
-                        .textSelection(.enabled)
+                        .onChange(of: title) { _, newValue in
+                            store.rename(bookmark.id, to: newValue)
+                        }
 
                     Text(bookmark.secondaryLabel)
                         .font(.system(size: 13, weight: .medium))
@@ -50,19 +59,6 @@ private struct BookmarkDetail: View {
                     HStack(spacing: 10) {
                         DetailPinButton(isPinned: bookmark.isImportant) {
                             store.toggleImportant(bookmark)
-                        }
-
-                        if bookmark.kind == .file {
-                            Button {
-                                store.openInPreview(bookmark)
-                            } label: {
-                                Label("Preview", systemImage: "photo")
-                                    .padding(.horizontal, 12)
-                                    .frame(height: 30)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Theme.textSecondary)
-                            .background(Theme.field, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                         }
 
                         Button {
@@ -96,14 +92,17 @@ private struct BookmarkDetail: View {
             .frame(maxWidth: .infinity)
         }
         .background(PaintedBackdrop())
+        .onChange(of: bookmark.id) { _, _ in
+            title = bookmark.title
+        }
     }
 
     @ViewBuilder
     private var sections: some View {
         if bookmark.kind == .file, let image = NSImage(contentsOfFile: bookmark.location) {
-            DetailSection(title: "Preview") {
+            DetailSection(title: "Image") {
                 Button {
-                    store.openInPreview(bookmark)
+                    store.open(bookmark)
                 } label: {
                     Image(nsImage: image)
                         .resizable()
@@ -116,25 +115,25 @@ private struct BookmarkDetail: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .help("Open in Preview")
+                .help("Open file")
                 .onDrag {
                     NSItemProvider(object: URL(fileURLWithPath: bookmark.location) as NSURL)
                 }
 
-                Text("Click to open in Preview or drag the file out.")
+                Text("Click to open or drag the file out.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.textTertiary)
                     .padding(.top, 2)
             }
         } else if bookmark.kind == .file {
-            DetailSection(title: "Preview") {
+            DetailSection(title: "File") {
                 Button {
-                    store.openInPreview(bookmark)
+                    store.open(bookmark)
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "photo")
+                        Image(systemName: "doc")
                             .font(.system(size: 15, weight: .semibold))
-                        Text("Open this file in Preview")
+                        Text("Open this file")
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity, minHeight: 68)

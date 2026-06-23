@@ -320,63 +320,31 @@ private struct TagSidebarRow: View {
     @State private var isRenaming = false
     @State private var draftName = ""
     @FocusState private var isNameFocused: Bool
+    private let actionWidth: CGFloat = 24
 
     var body: some View {
         HStack(spacing: 8) {
-            Button(action: action) {
-                HStack(spacing: 10) {
-                    Image(systemName: "tag")
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
-                        .frame(width: 16)
-
-                    if isRenaming {
-                        TextField("", text: $draftName)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .focused($isNameFocused)
-                            .onSubmit(commitRename)
-                            .onExitCommand(perform: cancelRename)
-                    } else {
-                        Text("#\(tag.name)")
-                            .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    if count > 0 && !isHovered && !isRenaming {
-                        Text("\(count)")
-                            .font(.system(size: 11, weight: .regular))
-                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
-                            .monospacedDigit()
-                    }
-                }
-                .padding(.horizontal, 7)
-                .frame(height: 28)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .background {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(isSelected ? Theme.selected : Color.clear)
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(isRenaming)
-
-            if isHovered && !isRenaming {
-                Button(action: beginRename) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 10, weight: .semibold))
+            if isRenaming {
+                rowShell { editingContent }
+            } else {
+                Button(action: action) {
+                    rowShell { displayContent }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Theme.textTertiary)
-                .help("Rename Tag")
-                .padding(.trailing, 8)
             }
+
+            Button(action: beginRename) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textTertiary)
+            .help("Rename Tag")
+            .opacity(isHovered && !isRenaming ? 1 : 0)
+            .allowsHitTesting(isHovered && !isRenaming)
+            .frame(width: actionWidth, alignment: .trailing)
+            .padding(.trailing, 8)
         }
         .onHover { isHovered = $0 }
         .onAppear {
@@ -417,6 +385,68 @@ private struct TagSidebarRow: View {
     private func cancelRename() {
         draftName = tag.name
         isRenaming = false
+    }
+
+    private func rowShell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 7)
+            .frame(height: 28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(isSelected ? Theme.selected : Color.clear)
+            }
+    }
+
+    private var displayContent: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "tag")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                .frame(width: 16)
+
+            Text("#\(tag.name)")
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 8)
+
+            if count > 0 && !isHovered {
+                Text("\(count)")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private var editingContent: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "tag")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 16)
+
+            TextField("", text: $draftName)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .focused($isNameFocused)
+                .onSubmit(commitRename)
+                .onExitCommand(perform: cancelRename)
+                .padding(.horizontal, 6)
+                .frame(height: 22)
+                .background(Theme.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Theme.cardStroke, lineWidth: 1)
+                }
+
+            Spacer(minLength: 8)
+        }
     }
 }
 
@@ -519,6 +549,7 @@ private struct ProjectSidebarBranch: View {
             projectID: project.id,
             projectTagID: project.tagID,
             title: project.name,
+            symbolName: project.symbolName,
             count: projectCount,
             depth: depth,
             hasChildren: !children.isEmpty,
@@ -583,6 +614,7 @@ private struct ProjectSidebarRow: View {
     let projectID: UUID
     let projectTagID: UUID?
     let title: String
+    let symbolName: String
     let count: Int
     let depth: Int
     let hasChildren: Bool
@@ -617,77 +649,19 @@ private struct ProjectSidebarRow: View {
             .buttonStyle(.plain)
             .disabled(!hasChildren)
 
-            Button(action: action) {
-                HStack(spacing: 10) {
-                    Image(systemName: hasChildren ? "folder" : "folder")
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(tint)
-                        .frame(width: 16)
-
-                    if isRenaming {
-                        TextField("", text: $draftTitle)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .focused($isNameFocused)
-                            .onSubmit(commitRename)
-                            .onExitCommand(perform: cancelRename)
-                    } else {
-                        Text(title)
-                            .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    if count > 0 && !isHovered && !isRenaming {
-                        Text("\(count)")
-                            .font(.system(size: 11, weight: .regular))
-                            .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
-                            .monospacedDigit()
+            if isRenaming {
+                rowShell { editingContent }
+            } else {
+                Button(action: action) {
+                    rowShell { displayContent }
+                }
+                .buttonStyle(.plain)
+                .overlay(alignment: .trailing) {
+                    if isHovered {
+                        actionButtons
+                            .padding(.trailing, 8)
                     }
                 }
-                .padding(.horizontal, 7)
-                .frame(height: 28)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .background {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(isSelected ? Theme.selected : Color.clear)
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(isRenaming)
-
-            if isHovered && !isRenaming {
-                HStack(spacing: 6) {
-                    Button(action: onAddChild) {
-                        Image(systemName: "folder.badge.plus")
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.textTertiary)
-                    .help("New Subfolder")
-
-                    Button(action: beginRename) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.textTertiary)
-                    .help("Rename Project")
-
-                    Button(role: .destructive, action: onDelete) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.textTertiary)
-                    .help("Delete Project")
-                }
-                .padding(.trailing, 8)
             }
         }
         .background {
@@ -698,6 +672,11 @@ private struct ProjectSidebarRow: View {
         .onAppear {
             if draftTitle.isEmpty {
                 draftTitle = title
+            }
+        }
+        .onChange(of: title) { _, newTitle in
+            if !isRenaming {
+                draftTitle = newTitle
             }
         }
         .onChange(of: isNameFocused) { _, focused in
@@ -776,5 +755,106 @@ private struct ProjectSidebarRow: View {
         }
 
         return true
+    }
+
+    private func rowShell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 7)
+            .frame(height: 28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(isSelected ? Theme.selected : Color.clear)
+            }
+    }
+
+    private var displayContent: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbolName)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(tint)
+                .frame(width: 16)
+
+            Text(displayTitle)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: isHovered ? 76 : 8)
+
+            if count > 0 && !isHovered {
+                Text("\(count)")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textTertiary)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private var editingContent: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbolName)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(tint)
+                .frame(width: 16)
+
+            TextField("", text: $draftTitle)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .focused($isNameFocused)
+                .onSubmit(commitRename)
+                .onExitCommand(perform: cancelRename)
+                .padding(.horizontal, 6)
+                .frame(height: 22)
+                .background(Theme.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Theme.cardStroke, lineWidth: 1)
+                }
+
+            Spacer(minLength: 8)
+        }
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 6) {
+            Button(action: onAddChild) {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textTertiary)
+            .help("New Subfolder")
+
+            Button(action: beginRename) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textTertiary)
+            .help("Rename Project")
+
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textTertiary)
+            .help("Delete Project")
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Theme.paper.opacity(0.92), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+    }
+
+    private var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled project" : trimmed
     }
 }

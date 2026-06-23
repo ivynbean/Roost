@@ -2,7 +2,7 @@ import XCTest
 @testable import Roost
 
 final class BookmarkCodingTests: XCTestCase {
-    func testImportantLegacyCategoryDecodesToInboxWithFlag() throws {
+    func testImportantLegacyCategoryDecodesToReadLaterWithFlag() throws {
         let json = """
         {
           "id": "00000000-0000-0000-0000-000000000001",
@@ -17,7 +17,7 @@ final class BookmarkCodingTests: XCTestCase {
 
         let bookmark = try JSONDecoder.roost.decode(Bookmark.self, from: json)
 
-        XCTAssertEqual(bookmark.category, .inbox)
+        XCTAssertEqual(bookmark.category, .readLater)
         XCTAssertTrue(bookmark.isImportant)
     }
 

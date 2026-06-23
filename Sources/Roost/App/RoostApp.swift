@@ -10,7 +10,7 @@ struct RoostApp: App {
     @StateObject private var navigation = NavigationModel()
     @StateObject private var calendarService = CalendarService()
     @StateObject private var screenshotWatcher = ScreenshotWatcher()
-    @AppStorage("roost.captureScreenshots") private var captureScreenshots = true
+    @AppStorage("roost.captureScreenshots") private var captureScreenshots = false
 
     var body: some Scene {
         WindowGroup("Roost Library", id: "library") {
@@ -36,18 +36,6 @@ struct RoostApp: App {
                     }
                 }
         }
-
-        WindowGroup("Roost", id: "bucket") {
-            BucketWindowView()
-                .environmentObject(store)
-                .environmentObject(noteStore)
-                .environmentObject(tagStore)
-                .environmentObject(navigation)
-                .environmentObject(calendarService)
-                .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)
-                .background(WindowConfigurator(style: .bucket))
-                .tint(Theme.pink)
-        }
         .commands {
             CommandGroup(after: .newItem) {
                 Button("New Note") {
@@ -72,6 +60,18 @@ struct RoostApp: App {
                 }
                 .keyboardShortcut("o", modifiers: [.command])
             }
+        }
+
+        Window("Roost", id: "bucket") {
+            BucketWindowView()
+                .environmentObject(store)
+                .environmentObject(noteStore)
+                .environmentObject(tagStore)
+                .environmentObject(navigation)
+                .environmentObject(calendarService)
+                .frame(minWidth: 360, idealWidth: 420, minHeight: 230, idealHeight: 260)
+                .background(WindowConfigurator(style: .bucket))
+                .tint(Theme.pink)
         }
 
         Settings {

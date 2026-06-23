@@ -11,7 +11,8 @@ ENTITLEMENTS="$ROOT_DIR/entitlements/AppStore.entitlements"
 
 cd "$ROOT_DIR"
 
-./script/build_and_run.sh --build-only
+ROOST_BUILD_CONFIGURATION=release ./script/build_and_run.sh --build-only
+find "$APP_PATH" -exec xattr -c {} +
 
 if [[ -n "${APP_SIGN_IDENTITY:-}" ]]; then
   codesign \

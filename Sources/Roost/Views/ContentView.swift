@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject private var store: BookmarkStore
     @EnvironmentObject private var noteStore: NoteStore
     @EnvironmentObject private var navigation: NavigationModel
+    @AppStorage("roost.hasSeededWelcomeNote") private var hasSeededWelcomeNote = false
     @State private var isDropTargeted = false
     @State private var quickCaptureText = ""
 
@@ -46,10 +47,35 @@ struct ContentView: View {
         .onDrop(of: BookmarkDropHandler.acceptedTypes, isTargeted: $isDropTargeted) { providers in
             BookmarkDropHandler.handle(providers, store: store)
         }
+        .task {
+            seedWelcomeNoteIfNeeded()
+        }
     }
 
     private var shouldShowDetail: Bool {
         noteStore.selectedNoteID != nil || store.selectedBookmarkID != nil
+    }
+
+    private func seedWelcomeNoteIfNeeded() {
+        guard !hasSeededWelcomeNote else { return }
+        hasSeededWelcomeNote = true
+
+        guard noteStore.notes.isEmpty else { return }
+
+        let note = noteStore.addNote(date: Date())
+        noteStore.update(note.id) { draft in
+            draft.title = "Welcome to Roost"
+            draft.content = """
+            Roost is your desktop drop box for thoughts, links, files, and screenshots.
+
+            • Type in the capture bar to save a note.
+            • Paste a URL or file path to save it to your library.
+            • Drag notes or saved items into Projects to organize them.
+            • Open the Roost menu bar icon when you want the quick catch-all box.
+            """
+        }
+        navigation.selection = .today
+        noteStore.selectedNoteID = note.id
     }
 }
 

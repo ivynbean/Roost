@@ -5,7 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject private var calendarService: CalendarService
     @EnvironmentObject private var screenshotWatcher: ScreenshotWatcher
     @AppStorage("roost.showCalendarInToday") private var showCalendar = true
-    @AppStorage("roost.captureScreenshots") private var captureScreenshots = true
+    @AppStorage("roost.captureScreenshots") private var captureScreenshots = false
 
     var body: some View {
         Form {

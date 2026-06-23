@@ -25,7 +25,7 @@ final class BookmarkStoreTests: XCTestCase {
         let bookmark = store.bookmarks[0]
         XCTAssertEqual(bookmark.kind, .file)
         XCTAssertEqual(bookmark.category, .screenshots)
-        XCTAssertEqual(bookmark.title, "Screenshot 2026-06-11 at 10.00.00")
+        XCTAssertTrue(bookmark.title.hasPrefix("Screenshot - Jun 11"))
     }
 
     func testAddScreenshotDoesNotStealSelection() {

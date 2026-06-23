@@ -26,6 +26,6 @@ final class BookmarkSorterTests: XCTestCase {
         XCTAssertEqual(sorter.category(for: "Figma logo inspiration board"), .design)
         XCTAssertEqual(sorter.category(for: "flight hotel itinerary for June"), .travel)
         XCTAssertEqual(sorter.category(for: "receipt for credit card subscription"), .money)
-        XCTAssertEqual(sorter.category(for: "totally random loose thought"), .inbox)
+        XCTAssertEqual(sorter.category(for: "totally random loose thought"), .readLater)
     }
 }

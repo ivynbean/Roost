@@ -14,6 +14,11 @@ let package = Package(
         .executableTarget(
             name: "Roost",
             path: "Sources/Roost",
+            exclude: [
+                "ANR_Africa_Payment_Tracker.gs",
+                "ANR_Label_Tracker_From_Scratch.gs",
+                "skills-lock.json"
+            ],
             resources: [
                 .process("Resources")
             ]

@@ -32,6 +32,7 @@ struct WindowConfigurator: NSViewRepresentable {
             window.level = .floating
             window.collectionBehavior.insert([.canJoinAllSpaces, .fullScreenAuxiliary])
             window.title = "Roost"
+            window.isRestorable = false
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.styleMask.insert(.fullSizeContentView)
@@ -51,6 +52,7 @@ struct WindowConfigurator: NSViewRepresentable {
             window.level = .normal
             window.collectionBehavior.remove([.canJoinAllSpaces, .fullScreenAuxiliary])
             window.title = "Roost Library"
+            window.isRestorable = true
             window.standardWindowButton(.zoomButton)?.isEnabled = true
             window.minSize = NSSize(width: 760, height: 520)
             window.setFrameAutosaveName("Roost.Library")

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 MODE="${1:-run}"
+CONFIGURATION="${ROOST_BUILD_CONFIGURATION:-debug}"
 APP_NAME="Roost"
 LEGACY_APP_NAME="Stash"
 SECOND_LEGACY_APP_NAME="Hatch"
@@ -24,8 +25,8 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 pkill -x "$LEGACY_APP_NAME" >/dev/null 2>&1 || true
 pkill -x "$SECOND_LEGACY_APP_NAME" >/dev/null 2>&1 || true
 
-swift build
-BUILD_DIR="$(swift build --show-bin-path)"
+swift build -c "$CONFIGURATION"
+BUILD_DIR="$(swift build -c "$CONFIGURATION" --show-bin-path)"
 BUILD_BINARY="$BUILD_DIR/$APP_NAME"
 RESOURCE_BUNDLE="$BUILD_DIR/Roost_Roost.bundle"
 

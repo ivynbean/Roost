@@ -101,7 +101,7 @@ final class MenuBarDropController: NSObject {
     }
 
     private var screenshotsEnabled: Bool {
-        UserDefaults.standard.object(forKey: "roost.captureScreenshots") as? Bool ?? true
+        UserDefaults.standard.object(forKey: "roost.captureScreenshots") as? Bool ?? false
     }
 
     private var catchBoxSize: CatchBoxSize {

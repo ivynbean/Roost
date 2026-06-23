@@ -213,6 +213,14 @@ final class BookmarkStore: ObservableObject {
         logger.info("Toggled important id=\(bookmark.id.uuidString, privacy: .public) value=\(self.bookmarks[index].isImportant, privacy: .public)")
     }
 
+    func rename(_ id: Bookmark.ID, to title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let index = bookmarks.firstIndex(where: { $0.id == id }) else { return }
+        bookmarks[index].title = trimmed
+        logger.info("Renamed bookmark id=\(id.uuidString, privacy: .public)")
+    }
+
     func deleteSelected() {
         guard let selectedBookmarkID else { return }
         bookmarks.removeAll { $0.id == selectedBookmarkID }
@@ -239,6 +247,12 @@ final class BookmarkStore: ObservableObject {
             lastImportMessage = "Couldn't open \(bookmark.displayTitle)."
             logger.error("Failed to resolve open URL for bookmark id=\(bookmark.id.uuidString, privacy: .public)")
             return
+        }
+        let didStartSecurityScope = startSecurityScopeIfNeeded(for: url, bookmark: bookmark)
+        defer {
+            if didStartSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
 
         let didOpen: Bool
@@ -271,15 +285,22 @@ final class BookmarkStore: ObservableObject {
             open(bookmark)
             return
         }
+        let didStartSecurityScope = startSecurityScopeIfNeeded(for: url, bookmark: bookmark)
 
         let path = url.path
         guard FileManager.default.fileExists(atPath: path) else {
+            if didStartSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
             lastImportMessage = "File not found: \(bookmark.displayTitle)"
             logger.error("Preview failed, missing file path=\(path, privacy: .public)")
             return
         }
 
         guard let previewAppURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Preview") else {
+            if didStartSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
             open(bookmark)
             return
         }
@@ -287,6 +308,9 @@ final class BookmarkStore: ObservableObject {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.open([url], withApplicationAt: previewAppURL, configuration: configuration) { [weak self] _, error in
+            if didStartSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 if let error {
@@ -309,13 +333,14 @@ final class BookmarkStore: ObservableObject {
     func addScreenshot(_ url: URL) {
         guard existingBookmark(matching: url.path) == nil else { return }
 
-        let bookmark = Bookmark(
+        var bookmark = Bookmark(
             title: Bookmark.friendlyFileTitle(for: url.path, fallback: url.deletingPathExtension().lastPathComponent),
             location: url.path,
             kind: .file,
             category: .screenshots,
             summary: url.path
         )
+        bookmark.securityScopedBookmarkData = securityScopedBookmarkData(for: url)
         bookmarks.insert(bookmark, at: 0)
         lastImportMessage = "Screenshot saved: \(bookmark.displayTitle)"
         logger.info("Captured screenshot bookmark id=\(bookmark.id.uuidString, privacy: .public)")
@@ -360,7 +385,7 @@ final class BookmarkStore: ObservableObject {
             return existing
         }
 
-        let bookmark = Bookmark(
+        var bookmark = Bookmark(
             title: Bookmark.friendlyFileTitle(for: url.path, fallback: url.deletingPathExtension().lastPathComponent),
             location: url.path,
             kind: .file,
@@ -369,6 +394,7 @@ final class BookmarkStore: ObservableObject {
             tagIDs: projectTagID.map { [$0] } ?? [],
             summary: url.path
         )
+        bookmark.securityScopedBookmarkData = securityScopedBookmarkData(for: url)
         bookmarks.insert(bookmark, at: 0)
         selectedCategory = bookmark.displayCategory
         selectedBookmarkID = bookmark.id
@@ -380,6 +406,11 @@ final class BookmarkStore: ObservableObject {
         let rawLocation = bookmark.location.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if bookmark.kind == .file {
+            if let bookmarkData = bookmark.securityScopedBookmarkData,
+               let url = resolveSecurityScopedBookmark(bookmarkData) {
+                return url
+            }
+
             if let url = URL(string: rawLocation), url.isFileURL {
                 return url
             }
@@ -396,6 +427,26 @@ final class BookmarkStore: ObservableObject {
             return nil
         }
         return URL(string: encoded)
+    }
+
+    private func securityScopedBookmarkData(for url: URL) -> Data? {
+        guard url.isFileURL else { return nil }
+        return try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+    }
+
+    private func resolveSecurityScopedBookmark(_ data: Data) -> URL? {
+        var isStale = false
+        return try? URL(
+            resolvingBookmarkData: data,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        )
+    }
+
+    private func startSecurityScopeIfNeeded(for url: URL, bookmark: Bookmark) -> Bool {
+        guard bookmark.securityScopedBookmarkData != nil else { return false }
+        return url.startAccessingSecurityScopedResource()
     }
 
     private func load() {

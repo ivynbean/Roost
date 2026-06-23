@@ -13,6 +13,7 @@ struct Bookmark: Identifiable, Codable, Equatable {
     var note: String
     var createdAt: Date
     var lastOpenedAt: Date?
+    var securityScopedBookmarkData: Data?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -27,6 +28,7 @@ struct Bookmark: Identifiable, Codable, Equatable {
         case note
         case createdAt
         case lastOpenedAt
+        case securityScopedBookmarkData
     }
 
     init(
@@ -41,7 +43,8 @@ struct Bookmark: Identifiable, Codable, Equatable {
         summary: String = "",
         note: String = "",
         createdAt: Date = Date(),
-        lastOpenedAt: Date? = nil
+        lastOpenedAt: Date? = nil,
+        securityScopedBookmarkData: Data? = nil
     ) {
         self.id = id
         self.title = title
@@ -55,6 +58,7 @@ struct Bookmark: Identifiable, Codable, Equatable {
         self.note = note
         self.createdAt = createdAt
         self.lastOpenedAt = lastOpenedAt
+        self.securityScopedBookmarkData = securityScopedBookmarkData
     }
 
     init(from decoder: Decoder) throws {
@@ -72,6 +76,7 @@ struct Bookmark: Identifiable, Codable, Equatable {
         note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt)
+        securityScopedBookmarkData = try container.decodeIfPresent(Data.self, forKey: .securityScopedBookmarkData)
     }
 
     var displayTitle: String {
